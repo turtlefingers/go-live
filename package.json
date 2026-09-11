@@ -1,0 +1,161 @@
+{
+  "name": "go-live",
+  "displayName": "Go Live",
+  "description": "Live Server that also runs npm/Vite projects with one click — 정적 HTML이든 npm 프로젝트든 상태바 버튼 하나로 실행",
+  "version": "0.1.0",
+  "publisher": "doodlefingers",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "Other",
+    "Education"
+  ],
+  "keywords": [
+    "live server",
+    "npm",
+    "vite",
+    "p5.js",
+    "three.js",
+    "go live"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "goLive.toggle",
+        "title": "시작/중지",
+        "category": "Go Live"
+      },
+      {
+        "command": "goLive.start",
+        "title": "시작",
+        "category": "Go Live"
+      },
+      {
+        "command": "goLive.stop",
+        "title": "중지",
+        "category": "Go Live"
+      },
+      {
+        "command": "goLive.reinstall",
+        "title": "패키지 다시 설치",
+        "category": "Go Live"
+      },
+      {
+        "command": "goLive.showTerminal",
+        "title": "터미널 보기",
+        "category": "Go Live"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "goLive.start",
+        "key": "alt+l alt+o"
+      },
+      {
+        "command": "goLive.stop",
+        "key": "alt+l alt+c"
+      }
+    ],
+    "configuration": {
+      "title": "Go Live",
+      "properties": {
+        "goLive.staticPort": {
+          "type": "number",
+          "default": 5500,
+          "description": "정적 모드(package.json 없음)에서 사용할 포트"
+        },
+        "goLive.npmScript": {
+          "type": "string",
+          "default": "",
+          "description": "실행할 npm 스크립트 이름. 비워두면 dev → start → serve → preview 순서로 자동 감지"
+        },
+        "goLive.packageManager": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "npm",
+            "pnpm",
+            "yarn",
+            "bun"
+          ],
+          "default": "auto",
+          "description": "패키지 매니저. auto면 lockfile과 package.json의 packageManager 필드로 감지"
+        },
+        "goLive.alwaysInstall": {
+          "type": "boolean",
+          "default": false,
+          "description": "시작할 때마다 항상 install을 실행"
+        },
+        "goLive.browser": {
+          "type": "string",
+          "enum": [
+            "external",
+            "simple",
+            "none"
+          ],
+          "enumDescriptions": [
+            "시스템 기본 브라우저",
+            "에디터 안의 Simple Browser",
+            "브라우저를 열지 않음"
+          ],
+          "default": "external",
+          "description": "서버가 준비되면 어디에서 열지"
+        },
+        "goLive.showTerminalOnStart": {
+          "type": "boolean",
+          "default": false,
+          "description": "시작할 때 터미널을 바로 표시 (교수자용). 기본은 오류가 났을 때만 표시"
+        },
+        "goLive.staticRoot": {
+          "type": "string",
+          "default": "",
+          "description": "정적 모드에서 서빙할 하위 폴더 (예: src, public)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit -p ./",
+    "package": "npm run typecheck && node esbuild.js --production",
+    "test": "node esbuild.js --test && node --test dist-test/*.test.js",
+    "vsix": "npm run package && npx @vscode/vsce package --allow-missing-repository --skip-license",
+    "smoke": "node esbuild.js --smoke && node dist-test/npm-flow.js",
+    "smoke:server": "node esbuild.js --smoke && node dist-test/server-features.js",
+    "smoke:crash": "node esbuild.js --smoke && node dist-test/host-crash.js",
+    "smoke:kill": "node esbuild.js --smoke && node dist-test/kill-check.js"
+  },
+  "dependencies": {
+    "tree-kill": "^1.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "1.104.0",
+    "@types/ws": "^8.18.1",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0",
+    "ws": "^8.21.3"
+  },
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1f1f1f",
+    "theme": "dark"
+  },
+  "homepage": "https://github.com/turtlefingers/go-live#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/turtlefingers/go-live.git"
+  },
+  "bugs": {
+    "url": "https://github.com/turtlefingers/go-live/issues"
+  }
+}

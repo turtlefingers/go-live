@@ -1,0 +1,12 @@
+{
+  "name": "fullstack-concurrently",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"node server.js\" \"vite\"",
+    "build": "vite build"
+  },
+  "dependencies": { "express": "^5.1.0" },
+  "devDependencies": { "vite": "^5.4.0", "concurrently": "^9.0.0" }
+}

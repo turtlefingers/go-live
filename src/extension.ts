@@ -1,0 +1,339 @@
+/**
+ * Go Live 진입점.
+ * - 상태바 버튼 하나로 정적 모드(내장 정적 서버)와 npm 모드(install → dev)를 동일하게 다룬다
+ * - 평소엔 상태바와 브라우저만 보이고, 터미널은 실패했을 때만 나타난다
+ */
+import * as vscode from 'vscode';
+import { StatusBar } from './statusBar';
+import { getConfig, BrowserMode } from './config';
+import { hasPackageJson, resolveNodeEnv } from './detect';
+import { StaticServer } from './runner/static';
+import { NpmSession } from './runner/npm';
+import { freePort } from './runner/commands';
+import { ProcessTerminal } from './runner/pty';
+import { portOf } from './runner/url';
+import { classify, Classification, NODE_DOWNLOAD_URL, UserAction } from './errors';
+import { setLanguage, t } from './l10n';
+
+interface StartOptions {
+  forceInstall?: boolean;
+  cleanInstall?: boolean;
+  port?: number;
+}
+
+class Controller implements vscode.Disposable {
+  private readonly status = new StatusBar();
+  private readonly staticServer = new StaticServer();
+  private session: NpmSession | undefined;
+  private pty: ProcessTerminal | undefined;
+  private terminal: vscode.Terminal | undefined;
+  private busy = false;
+  private stopRequested = false;
+  private readonly disposables: vscode.Disposable[] = [];
+
+  constructor(private readonly context: vscode.ExtensionContext) {
+    this.disposables.push(
+      vscode.window.onDidCloseTerminal((term) => {
+        if (term === this.terminal) {
+          this.terminal = undefined;
+          if (this.session) {
+            void this.stop();
+          }
+        }
+      })
+    );
+  }
+
+  // ── 명령 ────────────────────────────────────────────────────────────────
+
+  toggle(): Promise<void> {
+    return this.status.isActive ? this.stop() : this.start();
+  }
+
+  async start(opts: StartOptions = {}): Promise<void> {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) {
+      void vscode.window.showWarningMessage(t('msg.noWorkspace'));
+      return;
+    }
+    if (this.busy || this.status.isActive) {
+      return;
+    }
+    const root = folder.uri.fsPath;
+    const config = getConfig(folder);
+
+    this.busy = true;
+    this.stopRequested = false;
+    this.status.set('checking');
+    try {
+      if (hasPackageJson(root)) {
+        await this.startNpm(root, config, opts);
+      } else {
+        await this.startStatic(root, config);
+      }
+    } catch (e) {
+      this.status.set('error');
+      const message = e instanceof Error ? e.message : String(e);
+      // 설정 문제는 설정 화면으로 안내한다
+      if (e instanceof Error && e.message === t('msg.staticRootOutside', config.staticRoot)) {
+        const open = t('action.openSettings');
+        void vscode.window.showErrorMessage(message, open).then((choice) => {
+          if (choice === open) {
+            void vscode.commands.executeCommand('workbench.action.openSettings', 'goLive.staticRoot');
+          }
+        });
+      } else {
+        void vscode.window.showErrorMessage(t('msg.staticFail', message));
+      }
+    } finally {
+      this.busy = false;
+      if (this.stopRequested && this.status.isActive) {
+        await this.stop();
+      }
+    }
+  }
+
+  async stop(): Promise<void> {
+    this.stopRequested = true;
+    const session = this.session;
+    this.session = undefined;
+    if (session) {
+      await session.stop();
+      session.dispose();
+    }
+    await this.staticServer.stop();
+    this.status.set('idle');
+  }
+
+  async reinstall(): Promise<void> {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) {
+      void vscode.window.showWarningMessage(t('msg.noWorkspace'));
+      return;
+    }
+    if (!hasPackageJson(folder.uri.fsPath)) {
+      void vscode.window.showInformationMessage(t('msg.notNpmProject'));
+      return;
+    }
+    await this.stop();
+    await this.start({ cleanInstall: true });
+  }
+
+  showTerminal(): void {
+    this.terminal?.show(false);
+  }
+
+  // ── 정적 모드 ───────────────────────────────────────────────────────────
+
+  private async startStatic(root: string, config: ReturnType<typeof getConfig>): Promise<void> {
+    this.status.set('starting');
+    const url = await this.staticServer.start(root, config.staticRoot.trim(), config.staticPort);
+    if (this.stopRequested) {
+      return;
+    }
+    this.status.set('running', { url, port: portOf(url) });
+    await openBrowser(url, config.browser);
+  }
+
+  // ── npm 모드 ────────────────────────────────────────────────────────────
+
+  private async startNpm(root: string, config: ReturnType<typeof getConfig>, opts: StartOptions): Promise<void> {
+    const node = await resolveNodeEnv();
+    if (!node.found) {
+      this.status.set('error');
+      await this.showNodeMissing();
+      return;
+    }
+    if (this.stopRequested) {
+      return;
+    }
+
+    // 터미널은 세션마다 새로 만든다. 이전 로그는 버린다
+    this.disposeTerminal();
+    const pty = new ProcessTerminal();
+    this.pty = pty;
+    this.terminal = vscode.window.createTerminal({
+      name: t('terminal.name'),
+      pty,
+      iconPath: new vscode.ThemeIcon('radio-tower'),
+      isTransient: true,
+    });
+    if (config.showTerminalOnStart) {
+      this.terminal.show(true);
+    }
+
+    const session = new NpmSession({
+      root,
+      config,
+      workspaceState: this.context.workspaceState,
+      env: node.env,
+      pty,
+      onState: (s) => this.status.set(s),
+      notify: (m) => void vscode.window.showInformationMessage(m),
+      forceInstall: opts.forceInstall,
+      cleanInstall: opts.cleanInstall,
+      port: opts.port,
+    });
+    this.session = session;
+
+    session.onDevExit((result) => {
+      if (this.session !== session) {
+        return;
+      }
+      this.session = undefined;
+      this.status.set('error');
+      this.terminal?.show(true);
+      const cls = classify({ output: result.output, stage: 'dev', root }, new Set(['fallbackNpm', 'legacyPeerDeps', 'reinstall']));
+      const messageKey = cls.rule ? cls.messageKey : 'msg.devExited';
+      void this.showFailure({ ...cls, messageKey });
+    });
+
+    const outcome = await session.start();
+    if (this.session !== session) {
+      // 진행 중 stop 됨
+      return;
+    }
+
+    switch (outcome.kind) {
+      case 'cancelled':
+        this.session = undefined;
+        this.status.set('idle');
+        return;
+      case 'failed':
+        this.session = undefined;
+        this.status.set('error');
+        this.terminal?.show(true);
+        await this.showFailure(outcome.classification);
+        return;
+      case 'running':
+        this.status.set('running', { url: outcome.url, port: outcome.url ? portOf(outcome.url) : undefined });
+        if (outcome.warnKey) {
+          this.terminal?.show(true);
+          void vscode.window.showWarningMessage(t(outcome.warnKey));
+        }
+        if (outcome.url) {
+          await openBrowser(outcome.url, config.browser);
+        }
+        return;
+    }
+  }
+
+  private async showNodeMissing(): Promise<void> {
+    const download = t('action.download');
+    const guide = t('action.installGuide');
+    const choice = await vscode.window.showErrorMessage(
+      t('msg.nodeMissing'),
+      { modal: true, detail: t('msg.nodeMissing.detail') },
+      download,
+      guide
+    );
+    if (choice === download) {
+      await vscode.env.openExternal(vscode.Uri.parse(NODE_DOWNLOAD_URL));
+    } else if (choice === guide) {
+      await this.openGuide();
+    }
+  }
+
+  private async showFailure(cls: Classification): Promise<void> {
+    const labels = cls.actions.map((a) => t(a.labelKey));
+    const choice = await vscode.window.showErrorMessage(t(cls.messageKey, ...(cls.messageArgs ?? [])), ...labels);
+    if (choice === undefined) {
+      return;
+    }
+    const action = cls.actions[labels.indexOf(choice)];
+    if (action) {
+      await this.runAction(action);
+    }
+  }
+
+  private async runAction(action: UserAction): Promise<void> {
+    switch (action.kind) {
+      case 'openUrl':
+        await vscode.env.openExternal(vscode.Uri.parse(action.url));
+        return;
+      case 'openGuide':
+        await this.openGuide();
+        return;
+      case 'showTerminal':
+        this.showTerminal();
+        return;
+      case 'retry':
+        await this.start();
+        return;
+      case 'retryPort':
+        await this.start({ port: await freePort() });
+        return;
+      case 'openSettings':
+        await vscode.commands.executeCommand('workbench.action.openSettings', action.setting);
+        return;
+      case 'reinstall':
+        await this.reinstall();
+        return;
+    }
+  }
+
+  private async openGuide(): Promise<void> {
+    const uri = vscode.Uri.joinPath(this.context.extensionUri, 'docs', 'INSTALL_NODE.md');
+    try {
+      await vscode.commands.executeCommand('markdown.showPreview', uri);
+    } catch {
+      await vscode.window.showTextDocument(uri);
+    }
+  }
+
+  private disposeTerminal(): void {
+    const term = this.terminal;
+    this.terminal = undefined;
+    term?.dispose();
+    this.pty?.dispose();
+    this.pty = undefined;
+  }
+
+  async dispose(): Promise<void> {
+    await this.stop();
+    this.disposeTerminal();
+    this.status.dispose();
+    for (const d of this.disposables) {
+      d.dispose();
+    }
+  }
+}
+
+async function openBrowser(url: string, mode: BrowserMode): Promise<void> {
+  if (mode === 'none') {
+    return;
+  }
+  if (mode === 'simple') {
+    try {
+      await vscode.commands.executeCommand('simpleBrowser.show', url);
+      return;
+    } catch {
+      /* Simple Browser 가 없는 에디터 → 외부 브라우저로 */
+    }
+  }
+  await vscode.env.openExternal(vscode.Uri.parse(url));
+}
+
+let controller: Controller | undefined;
+
+export function activate(context: vscode.ExtensionContext): void {
+  setLanguage(vscode.env.language);
+  controller = new Controller(context);
+  const c = controller;
+  context.subscriptions.push(
+    vscode.commands.registerCommand('goLive.toggle', () => c.toggle()),
+    vscode.commands.registerCommand('goLive.start', () => c.start()),
+    vscode.commands.registerCommand('goLive.stop', () => c.stop()),
+    vscode.commands.registerCommand('goLive.reinstall', () => c.reinstall()),
+    vscode.commands.registerCommand('goLive.showTerminal', () => c.showTerminal())
+  );
+}
+
+export async function deactivate(): Promise<void> {
+  const c = controller;
+  controller = undefined;
+  if (c) {
+    // 프로세스 트리를 반드시 종료한다 (Windows 에서 고아 프로세스 방지)
+    await c.dispose();
+  }
+}

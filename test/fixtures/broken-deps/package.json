@@ -1,0 +1,8 @@
+{
+  "name": "broken-deps",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": { "dev": "vite" },
+  "devDependencies": { "vite": "^5.4.0", "this-package-does-not-exist-go-live-xyz": "^1.0.0" }
+}

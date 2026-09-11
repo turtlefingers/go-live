@@ -1,0 +1,5 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>express-api</title></head>
+<body><h1>Express API</h1><pre id="out">불러오는 중…</pre>
+<script>
+fetch('/api/hello').then(r => r.json()).then(d => { document.getElementById('out').textContent = JSON.stringify(d, null, 2); });
+</script></body></html>

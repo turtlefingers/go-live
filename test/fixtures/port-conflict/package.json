@@ -1,0 +1,8 @@
+{
+  "name": "port-conflict",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": { "dev": "vite --strictPort", "hold-port": "node hold-port.js" },
+  "devDependencies": { "vite": "^5.4.0" }
+}

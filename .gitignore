@@ -1,0 +1,42 @@
+# ── 빌드 산출물 ────────────────────────────────────────────
+node_modules/
+dist/
+dist-test/
+*.vsix
+*.tsbuildinfo
+
+# ── 테스트 fixture 가 실행 중 만드는 것 (fixture 소스만 커밋한다) ──
+test/fixtures/**/node_modules/
+test/fixtures/**/dist/
+test/fixtures/**/.next/
+test/fixtures/**/.vite/
+test/fixtures/**/.cache/
+test/fixtures/**/package-lock.json
+# pnpm-lock.yaml / yarn.lock 은 패키지 매니저 감지 테스트용이므로 유지
+
+# ── 비밀 정보 (마켓플레이스 토큰, PAT 등) ───────────────────
+.env
+.env.*
+*.pem
+*.key
+.vsce-token
+.ovsx-token
+
+# ── 로그 / 임시 ───────────────────────────────────────────
+*.log
+npm-debug.log*
+coverage/
+.vscode-test/
+tmp/
+*.tmp
+
+# ── OS / 에디터 ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+# .vscode/ 의 launch.json, tasks.json 은 F5 디버그용이라 커밋한다
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
