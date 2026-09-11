@@ -128,7 +128,7 @@ const touch = (file: string, mutate: (s: string) => string) => fs.writeFileSync(
       expect(api.from === 'next-api', 'GET /api/hello → JSON');
       const html = await (await fetch(outcome.url)).text();
       // React 는 텍스트와 표현식 사이에 <!-- --> 를 넣는다
-      const ssr = /id="ssr">서버에서 렌더링됨: (<!-- -->)?\d{4}-\d{2}-\d{2}T/.test(html);
+      const ssr = /id="ssr"[^>]*>서버에서 렌더링됨: (<!-- -->)?\d{4}-\d{2}-\d{2}T/.test(html);
       if (!ssr) { console.log('   │ html:', html.slice(0, 600).replace(/\n/g, ' ')); }
       expect(ssr, 'getServerSideProps 로 SSR 된 HTML');
     } else { expect(false, 'next-api running'); }

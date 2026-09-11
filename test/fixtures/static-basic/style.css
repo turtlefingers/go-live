@@ -1,2 +1,2 @@
-body { font-family: system-ui, sans-serif; padding: 2rem; background: #fafafa; }
-h1 { color: #e0521a; }
+:root { --accent-card: #3DDC84; }
+.accent-card { border-left: 8px solid var(--accent-card); }

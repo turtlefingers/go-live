@@ -25,3 +25,8 @@
 | `next-api` | Next.js SSR 페이지 + `/api/hello` (설치 용량 큼) |
 | `static-modules` | five-server 에서 ES module, fetch JSON, 한글 폴더/파일명, .glb/.wasm MIME, 저장 시 reload/refreshcss 신호 |
 | `vite-vanilla` (재사용) | Vite HMR 웹소켓으로 파일 수정 → update 메시지 수신 |
+
+## 디자인
+
+예제 페이지는 모두 같은 테마를 씁니다. 확장 아이콘의 색(바탕 `#F5F5F5`, 글자 `#1E1E1E`, 선 `#D0D0D0`)을 기본으로, 포인트는 상태바의 라이브 초록 `#3DDC84`.
+디자인 시스템은 [daisyUI](https://daisyui.com) 의 `cupcake` 테마를 CDN 으로 불러 CSS 변수만 덮어씁니다. 각 fixture 는 서로 다른 폴더로 열리므로 `<head>` 의 공통 스니펫이 파일마다 복사돼 있습니다 (인터넷 필요).

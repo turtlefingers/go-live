@@ -1,79 +1,121 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="cupcake">
 <head>
-<meta charset="utf-8">
-<title>ws-chat</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ws-chat · Go Live</title>
+<!-- Go Live 예제 공통 디자인: daisyUI(cupcake) + 로고 팔레트. CDN 이라 인터넷이 필요합니다 -->
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css" rel="stylesheet" type="text/css" />
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 560px; margin: 2rem auto; padding: 0 1rem; }
-  h1 { font-size: 1.3rem; }
-  .bar { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: #aaa; }
-  .dot.on { background: #2ecc71; }
-  #log { border: 1px solid #ddd; border-radius: 8px; height: 260px; overflow-y: auto; padding: .5rem; font-size: .95rem; }
-  #log div { padding: 2px 0; }
-  #log .me { color: #1a73e8; }
-  #log .sys { color: #888; font-size: .85rem; }
-  form { display: flex; gap: .5rem; margin-top: .5rem; }
-  input { flex: 1; padding: .5rem; font-size: 1rem; }
-  button { padding: .5rem 1rem; font-size: 1rem; cursor: pointer; }
-  #count { font-size: 2rem; margin: 0 .5rem; }
-  #typing { height: 1.2rem; color: #888; font-size: .85rem; }
+  /* 로고 색을 기본으로: 바탕 #F5F5F5, 글자 #1E1E1E, 선 #D0D0D0. 포인트는 상태바의 라이브 초록 */
+  [data-theme="cupcake"] {
+    --color-base-100: #F5F5F5;
+    --color-base-200: #EBEBEB;
+    --color-base-300: #D0D0D0;
+    --color-base-content: #1E1E1E;
+    --color-primary: #1E1E1E;
+    --color-primary-content: #F5F5F5;
+    --color-secondary: #3DDC84;
+    --color-secondary-content: #0B2E1B;
+    --color-accent: #FFB86B;
+    --color-accent-content: #3A2200;
+    --color-neutral: #2B2B2B;
+    --color-neutral-content: #F5F5F5;
+    --color-success: #3DDC84;
+    --color-warning: #FFB86B;
+    --color-error: #FF6B6B;
+    --radius-box: 1.25rem;
+    --radius-field: 1rem;
+    --radius-selector: 1rem;
+    --depth: 1;
+  }
+  body { font-family: "Gowun Dodum", system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  .logo-tile { width: 2.25rem; height: 2.25rem; border-radius: .7rem; background: #F5F5F5; border: 2px solid #D0D0D0; display: grid; place-items: center; }
 </style>
+
 </head>
-<body>
-<h1>WebSocket 실시간 테스트</h1>
-<p>이 페이지를 <b>브라우저 탭 두 개</b>(또는 폰)로 열어보세요. 한쪽에서 보낸 메시지와 카운터가 다른 쪽에 즉시 나타나야 합니다.</p>
-
-<div class="bar">
-  <span class="dot" id="dot"></span>
-  <span id="status">연결 중…</span>
-  <span id="online"></span>
+<body class="min-h-screen bg-base-200">
+<div class="navbar bg-base-100 border-b border-base-300 px-4">
+  <div class="flex-1 flex items-center gap-3">
+    <span class="logo-tile"><svg viewBox="0 0 16 16" width="20" height="20" fill="#1E1E1E" aria-hidden="true"><path d="M9.024 6.59503C9.036 6.58403 9.048 6.57203 9.06 6.56103C9.645 5.97603 9.645 5.02503 9.06 4.44003C8.476 3.85503 7.523 3.85503 6.939 4.44003C6.354 5.02503 6.354 5.97603 6.939 6.56103C6.951 6.57303 6.963 6.58403 6.975 6.59503L4.041 13.3C3.931 13.553 4.046 13.847 4.299 13.958C4.364 13.987 4.432 14 4.499 14C4.691 14 4.875 13.888 4.957 13.7L5.701 12H10.297L11.041 13.7C11.123 13.888 11.307 14 11.499 14C11.566 14 11.634 13.987 11.699 13.958C11.952 13.847 12.067 13.553 11.957 13.3L9.023 6.59503H9.024ZM7.646 5.14603C7.744 5.04803 7.872 5.00003 8 5.00003C8.128 5.00003 8.256 5.04803 8.354 5.14603C8.549 5.34103 8.549 5.65803 8.354 5.85303C8.159 6.04803 7.842 6.04803 7.647 5.85303C7.452 5.65803 7.451 5.34103 7.646 5.14603ZM6.139 11L7.892 6.99503C7.928 6.99803 7.964 6.99903 8 6.99903C8.036 6.99903 8.072 6.99703 8.108 6.99503L9.861 11H6.139ZM4.326 9.95403C4.22 10.061 4.087 10.121 3.956 10.121C3.851 10.121 3.745 10.081 3.657 9.99503L3.577 9.91603C2.4 8.73903 1.75 7.16903 1.75 5.50003C1.75 3.83103 2.4 2.26103 3.581 1.08103C3.776 0.886027 4.093 0.886027 4.288 1.08103C4.483 1.27603 4.483 1.59303 4.288 1.78803C3.296 2.78003 2.75 4.09803 2.75 5.50003C2.75 6.90203 3.296 8.22103 4.288 9.21203C4.482 9.40603 4.519 9.75703 4.326 9.95303V9.95403ZM4.995 2.49503C5.19 2.30003 5.507 2.30003 5.702 2.49503C5.897 2.69003 5.897 3.00703 5.702 3.20203C4.599 4.30503 4.434 6.03803 5.309 7.32503C5.464 7.55303 5.406 7.86403 5.177 8.01903C5.091 8.07803 4.993 8.10603 4.896 8.10603C4.737 8.10603 4.58 8.02903 4.483 7.88703C3.337 6.20403 3.552 3.93703 4.995 2.49503ZM14.25 5.50003C14.25 7.16903 13.6 8.73903 12.419 9.91903L12.343 9.99403C12.246 10.09 12.119 10.137 11.993 10.137C11.863 10.137 11.734 10.087 11.636 9.98703C11.443 9.79003 11.447 9.47303 11.644 9.28003C12.705 8.22003 13.25 6.90203 13.25 5.49903C13.25 4.09603 12.704 2.77803 11.712 1.78703C11.517 1.59203 11.517 1.27503 11.712 1.08003C11.907 0.885027 12.224 0.885027 12.419 1.08003C13.6 2.26103 14.25 3.83103 14.25 5.50003ZM10.298 3.20203C10.103 3.00703 10.103 2.69003 10.298 2.49503C10.493 2.30003 10.81 2.30003 11.005 2.49503C12.447 3.93703 12.662 6.20403 11.517 7.88703C11.42 8.02903 11.263 8.10603 11.104 8.10603C11.006 8.10603 10.909 8.07803 10.823 8.01903C10.594 7.86403 10.536 7.55303 10.691 7.32503C11.566 6.03903 11.401 4.30503 10.298 3.20203Z"/></svg></span>
+    <span class="text-lg font-bold">Go Live 채팅</span>
+  </div>
+  <div class="flex-none flex items-center gap-2"><span class="badge badge-ghost" id="online">접속 –</span>
+    <span class="badge badge-soft" id="status"><span class="status status-neutral mr-1" id="dot"></span>연결 중…</span></div>
 </div>
-
-<div class="bar">
-  <button id="plus" type="button">공유 카운터 +1</button>
-  <span id="count">0</span>
-  <span id="by"></span>
-</div>
-
-<div id="log"></div>
-<div id="typing"></div>
-<form id="form">
-  <input id="input" placeholder="메시지를 입력하고 Enter" autocomplete="off">
-  <button>보내기</button>
-</form>
+<main class="max-w-2xl mx-auto p-4 grid grid-cols-1 md:grid-cols-[1fr_200px] gap-4">
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body p-0">
+      <div class="px-4 pt-3 text-xs text-base-content/60">이 페이지를 <b>브라우저 탭 두 개</b>(또는 폰)로 열어보세요. 한쪽에서 보낸 메시지가 다른 쪽에 바로 나타나야 합니다.</div>
+      <div id="log" class="px-4 py-3 h-[52vh] overflow-y-auto space-y-1"></div>
+      <div id="typing" class="px-4 h-6 text-xs text-base-content/60"></div>
+      <form id="form" class="p-3 border-t border-base-300 flex gap-2">
+        <input id="input" class="input input-bordered flex-1" placeholder="메시지를 입력하고 Enter" autocomplete="off" maxlength="500" />
+        <button class="btn btn-primary">보내기</button>
+      </form>
+    </div>
+  </section>
+  <aside class="space-y-4">
+    <div class="card bg-base-100 shadow-sm"><div class="card-body items-center text-center p-4">
+      <div class="text-3xl" id="me-emoji">🙂</div>
+      <div class="font-semibold" id="me-name">…</div>
+      <div class="text-xs text-base-content/60">내 이름 (서버가 정해줘요)</div>
+    </div></div>
+    <div class="card bg-base-100 shadow-sm"><div class="card-body p-4">
+      <div class="stat p-0">
+        <div class="stat-title">공유 카운터</div>
+        <div class="stat-value text-secondary" id="count">0</div>
+        <div class="stat-desc" id="by">아직 아무도 안 눌렀어요</div>
+      </div>
+      <button class="btn btn-secondary btn-block mt-2" id="plus" type="button">+1 누르기</button>
+    </div></div>
+  </aside>
+</main>
 
 <script>
 const $ = (id) => document.getElementById(id);
 let me = null;
 let typingTimer = null;
 const ws = new WebSocket(location.origin.replace(/^http/, 'ws'));
+const time = (t) => new Date(t).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-const log = (text, cls = '') => {
-  const div = document.createElement('div');
-  div.className = cls;
-  div.textContent = text;
-  $('log').appendChild(div);
-  $('log').scrollTop = $('log').scrollHeight;
+const scroll = () => { $('log').scrollTop = $('log').scrollHeight; };
+const system = (text) => { $('log').insertAdjacentHTML('beforeend', `<div class="divider text-xs text-base-content/50 my-1">${esc(text)}</div>`); scroll(); };
+const bubble = (m) => {
+  const mine = m.from === me;
+  $('log').insertAdjacentHTML('beforeend', `
+    <div class="chat ${mine ? 'chat-end' : 'chat-start'}">
+      <div class="chat-image avatar avatar-placeholder"><div class="bg-base-200 w-9 rounded-full text-lg"><span>${m.emoji}</span></div></div>
+      <div class="chat-header text-xs opacity-60">${esc(m.name)} <time>${time(m.at)}</time></div>
+      <div class="chat-bubble ${mine ? 'chat-bubble-primary' : ''}">${esc(m.text)}</div>
+    </div>`);
+  scroll();
 };
 
-ws.onopen = () => { $('dot').classList.add('on'); $('status').textContent = '연결됨'; };
-ws.onclose = () => { $('dot').classList.remove('on'); $('status').textContent = '끊김 (서버가 꺼졌나요? Go Live 를 다시 눌러보세요)'; };
+ws.onopen = () => { $('dot').className = 'status status-success mr-1'; $('status').lastChild.textContent = '연결됨'; };
+ws.onclose = () => { $('dot').className = 'status status-error mr-1'; $('status').lastChild.textContent = '끊김'; system('서버와 연결이 끊겼어요. Go Live 를 다시 눌러보세요.'); };
 ws.onmessage = (e) => {
   const m = JSON.parse(e.data);
-  if (m.type === 'welcome') { me = m.id; $('count').textContent = m.counter; log(`나는 #${me} 입니다`, 'sys'); }
-  if (m.type === 'presence') { $('online').textContent = `· 접속 ${m.online}명`; log(m.text, 'sys'); }
-  if (m.type === 'chat') log(`#${m.from}: ${m.text}`, m.from === me ? 'me' : '');
-  if (m.type === 'counter') { $('count').textContent = m.counter; $('by').textContent = `(#${m.by} 가 눌렀어요)`; }
+  if (m.type === 'welcome') {
+    me = m.id; $('me-emoji').textContent = m.emoji; $('me-name').textContent = m.name; $('count').textContent = m.counter;
+    for (const h of m.history) bubble(h);
+    system(`${m.emoji} ${m.name} 으로 입장했어요`);
+  }
+  if (m.type === 'presence') { $('online').textContent = `접속 ${m.online}명`; system(m.text); }
+  if (m.type === 'chat') bubble(m);
+  if (m.type === 'counter') { $('count').textContent = m.counter; $('by').textContent = `${m.name} 님이 눌렀어요`; }
   if (m.type === 'typing' && m.from !== me) {
-    $('typing').textContent = `#${m.from} 님이 입력 중…`;
+    $('typing').innerHTML = `<span class="loading loading-dots loading-xs"></span> ${esc(m.name)} 님이 입력 중`;
     clearTimeout(typingTimer);
     typingTimer = setTimeout(() => ($('typing').textContent = ''), 1200);
   }
 };
 
-$('form').onsubmit = (e) => {
-  e.preventDefault();
+$('form').onsubmit = (ev) => {
+  ev.preventDefault();
   const text = $('input').value.trim();
   if (!text) return;
   ws.send(JSON.stringify({ type: 'chat', text }));
@@ -82,5 +124,6 @@ $('form').onsubmit = (e) => {
 $('input').oninput = () => ws.send(JSON.stringify({ type: 'typing' }));
 $('plus').onclick = () => ws.send(JSON.stringify({ type: 'count' }));
 </script>
+
 </body>
 </html>

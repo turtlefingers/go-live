@@ -1,1 +1,2 @@
-body { font-family: system-ui; padding: 2rem; }
+/* 저장하면 refreshcss 신호가 와서 새로고침 없이 교체된다 */
+.list-row .badge { min-width: 5.5rem; }
