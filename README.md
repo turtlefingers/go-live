@@ -88,6 +88,7 @@ MIT
 - **[live-server](https://github.com/tapio/live-server)** by Tapio Vierros (MIT) — 정적 서빙 + 파일 감시 + WebSocket 리로드, CSS 만 바뀌면 페이지를 새로고침하지 않고 스타일만 교체하는 동작 방식을 참고해 Node 내장 API 로 새로 구현했습니다.
 - **[Five Server](https://github.com/yandeu/five-server)** by Yannick Deubel — 에디터와 브라우저를 연결하는 여러 아이디어에서 영감을 받았습니다.
 - **[tree-kill](https://github.com/pkrumins/node-tree-kill)** by Peteris Krumins (MIT) — Windows 에서도 dev 서버의 자식 프로세스까지 확실히 종료하는 데 씁니다. 이 확장에 포함된 유일한 외부 런타임 코드입니다.
+- **[Codicons](https://github.com/microsoft/vscode-codicons)** by Microsoft (CC BY 4.0) — 확장 아이콘의 전파탑 모양은 VS Code 상태바에 쓰이는 codicon `radio-tower` 글리프를 색만 바꿔 사용했습니다. 상태바 버튼과 같은 모양이라 학생이 바로 알아볼 수 있습니다.
 - **[Vite](https://vitejs.dev)** — 학생들이 처음 만나는 npm 프로젝트의 대부분이 Vite 입니다. Vite 의 `Local:` 출력 형식을 기준으로 서버 주소를 감지합니다.
 
 이슈와 제안은 언제나 환영합니다.
