@@ -102,9 +102,8 @@ ws.onmessage = (e) => {
   if (m.type === 'welcome') {
     me = m.id; $('me-emoji').textContent = m.emoji; $('me-name').textContent = m.name; $('count').textContent = m.counter;
     for (const h of m.history) bubble(h);
-    system(`${m.emoji} ${m.name}(으)로 입장했어요`);
   }
-  if (m.type === 'presence') { $('online').textContent = `접속 ${m.online}명`; if (m.who !== me) system(m.text); } // 내 입장은 위 한 줄로 충분
+  if (m.type === 'presence') { $('online').textContent = `접속 ${m.online}명`; system(m.who === me ? `${m.text} (나)` : m.text); }
   if (m.type === 'chat') bubble(m);
   if (m.type === 'counter') { $('count').textContent = m.counter; $('by').textContent = `${m.name} 님이 눌렀어요`; }
   if (m.type === 'typing' && m.from !== me) {
