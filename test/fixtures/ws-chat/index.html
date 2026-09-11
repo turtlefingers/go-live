@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ws-chat · Go Live</title>
 <!-- Go Live 예제 공통 디자인: daisyUI(cupcake) + 로고 팔레트. CDN 이라 인터넷이 필요합니다 -->
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
 <link href="https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css" rel="stylesheet" type="text/css" />
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <style>
@@ -31,7 +31,7 @@
     --radius-selector: 1rem;
     --depth: 1;
   }
-  body { font-family: "Gowun Dodum", system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  body { font-family: "Pretendard", system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
   .logo-tile { width: 2.25rem; height: 2.25rem; border-radius: .7rem; background: #F5F5F5; border: 2px solid #D0D0D0; display: grid; place-items: center; }
 </style>
 
@@ -102,9 +102,9 @@ ws.onmessage = (e) => {
   if (m.type === 'welcome') {
     me = m.id; $('me-emoji').textContent = m.emoji; $('me-name').textContent = m.name; $('count').textContent = m.counter;
     for (const h of m.history) bubble(h);
-    system(`${m.emoji} ${m.name} 으로 입장했어요`);
+    system(`${m.emoji} ${m.name}(으)로 입장했어요`);
   }
-  if (m.type === 'presence') { $('online').textContent = `접속 ${m.online}명`; system(m.text); }
+  if (m.type === 'presence') { $('online').textContent = `접속 ${m.online}명`; if (m.who !== me) system(m.text); } // 내 입장은 위 한 줄로 충분
   if (m.type === 'chat') bubble(m);
   if (m.type === 'counter') { $('count').textContent = m.counter; $('by').textContent = `${m.name} 님이 눌렀어요`; }
   if (m.type === 'typing' && m.from !== me) {

@@ -29,7 +29,7 @@ wss.on('connection', (ws) => {
   ws.id = nextId++;
   const me = userOf(ws);
   ws.send(JSON.stringify({ type: 'welcome', id: me.id, name: me.name, emoji: me.emoji, counter, history: history.slice(-30) }));
-  broadcast({ type: 'presence', online: wss.clients.size, text: `${me.emoji} ${me.name} 님이 들어왔어요` });
+  broadcast({ type: 'presence', who: me.id, online: wss.clients.size, text: `${me.emoji} ${me.name} 님이 들어왔어요` });
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
@@ -42,7 +42,7 @@ wss.on('connection', (ws) => {
     if (msg.type === 'count') { counter += 1; broadcast({ type: 'counter', counter, by: me.id, name: me.name }); }
     if (msg.type === 'typing') broadcast({ type: 'typing', from: me.id, name: me.name });
   });
-  ws.on('close', () => broadcast({ type: 'presence', online: wss.clients.size, text: `${me.emoji} ${me.name} 님이 나갔어요` }));
+  ws.on('close', () => broadcast({ type: 'presence', who: me.id, online: wss.clients.size, text: `${me.emoji} ${me.name} 님이 나갔어요` }));
 });
 
 const port = Number(process.env.PORT) || 3200;
