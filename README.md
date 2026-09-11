@@ -5,11 +5,19 @@
 터미널을 열 필요가 없어요. `npm install` 도, `npm run dev` 도 버튼이 대신 눌러줍니다.
 문제가 생기면 영어 에러 대신 한국어로 "무엇이 문제인지, 무엇을 하면 되는지" 알려줘요.
 
-## 설치 (3단계)
+## 설치
 
-1. 선생님이 준 `go-live-0.1.0.vsix` 파일을 바탕화면 등 찾기 쉬운 곳에 둡니다.
-2. Antigravity(또는 VS Code) 왼쪽 **확장(Extensions)** 패널을 열고, 오른쪽 위 `···` 메뉴 → **VSIX에서 설치... (Install from VSIX...)** 를 누릅니다.
-3. 1번 파일을 고르면 끝. 오른쪽 아래 상태바에 **📡 Go Live** 버튼이 나타납니다.
+**Antigravity, Cursor, VSCodium** — 확장 패널에서 검색해 설치합니다.
+
+1. 왼쪽 **확장(Extensions)** 패널을 엽니다.
+2. 검색창에 `Go Live` 를 입력하고, 게시자가 **doodlefingers** 인 항목의 **Install** 을 누릅니다.
+3. 오른쪽 아래 상태바에 **📡 Go Live** 버튼이 나타나면 끝.
+
+**VS Code** — 파일로 설치합니다. (VS Code 는 다른 마켓플레이스를 쓰기 때문에 검색으로는 나오지 않아요.)
+
+1. https://github.com/turtlefingers/go-live/releases 에서 최신 `go-live-x.y.z.vsix` 파일을 내려받아 바탕화면 등 찾기 쉬운 곳에 둡니다.
+2. 왼쪽 **확장(Extensions)** 패널을 열고, 오른쪽 위 `···` 메뉴 → **VSIX에서 설치... (Install from VSIX...)** 를 누릅니다.
+3. 1번 파일을 고르면 끝. 상태바에 **📡 Go Live** 버튼이 나타납니다.
 
 ## 사용
 

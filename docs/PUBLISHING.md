@@ -28,6 +28,10 @@ Go Live 는 두 곳에 올려야 한다. **Antigravity 는 Open VSX 에서 확�
 
 ## 2. Microsoft Marketplace (VS Code 용)
 
+> **2026-09 현재 보류.** 새 Azure DevOps 조직을 만들려면 활성 Azure 구독(종량제, 카드 등록 필요)을 연결해야 한다. 무료 체험 구독은 거부된다.
+> VS Code 사용자는 대신 GitHub Releases 의 vsix 로 설치한다 (아래 2-b). Marketplace 가 필요해지면 종량제 구독을 만든 뒤 이 절차를 따른다. 청구액은 0원이다.
+
+
 1. https://marketplace.visualstudio.com/manage 에서 Microsoft 계정으로 로그인 → **Create publisher** (ID: `doodlefingers`)
 2. https://dev.azure.com 에서 아무 조직이나 만든 뒤 User settings → **Personal Access Tokens** → New Token
    - Organization: **All accessible organizations**
@@ -39,13 +43,23 @@ Go Live 는 두 곳에 올려야 한다. **Antigravity 는 Open VSX 에서 확�
    ```
 4. 확인: https://marketplace.visualstudio.com/items?itemName=doodlefingers.go-live (반영까지 몇 분 걸린다)
 
+## 2-b. GitHub Release 에 vsix 올리기 (VS Code 사용자용)
+
+```bash
+npm run vsix
+gh release create v0.1.0 go-live-0.1.0.vsix --title "Go Live 0.1.0" --notes "변경 내용"
+```
+
+README 의 VS Code 설치 안내가 이 Releases 페이지를 가리킨다.
+
 ## 3. 버전 올리기
 
 ```bash
 npm version patch        # 0.1.0 → 0.1.1 (package.json 갱신)
 npm run vsix
 npx ovsx publish go-live-0.1.1.vsix -p <토큰>
-npx @vscode/vsce publish
+npx @vscode/vsce publish      # Marketplace 를 쓰는 경우
+gh release create v0.1.1 go-live-0.1.1.vsix --title "Go Live 0.1.1" --notes "변경 내용"
 ```
 
 ## 주의
