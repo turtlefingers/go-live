@@ -23,11 +23,21 @@ const broadcast = (obj) => {
     if (c.readyState === 1) c.send(data);
   }
 };
-const userOf = (ws) => ({ id: ws.id, name: NAMES[(ws.id - 1) % NAMES.length], emoji: EMOJIS[(ws.id - 1) % EMOJIS.length] });
+/** 접속 중인 사람과 겹치지 않게 동물을 무작위로 고른다. 다 쓰였으면 겹치되 번호를 붙인다 */
+const pickAnimal = () => {
+  const taken = new Set([...wss.clients].map((c) => c.animal).filter((n) => n !== undefined));
+  const free = NAMES.map((_, i) => i).filter((i) => !taken.has(i));
+  const pool = free.length ? free : NAMES.map((_, i) => i);
+  const i = pool[Math.floor(Math.random() * pool.length)];
+  const dup = [...wss.clients].filter((c) => c.animal === i).length;
+  return { index: i, name: dup ? `${NAMES[i]}${dup + 1}` : NAMES[i], emoji: EMOJIS[i] };
+};
 
 wss.on('connection', (ws) => {
   ws.id = nextId++;
-  const me = userOf(ws);
+  const animal = pickAnimal();
+  ws.animal = animal.index;
+  const me = { id: ws.id, name: animal.name, emoji: animal.emoji };
   ws.send(JSON.stringify({ type: 'welcome', id: me.id, name: me.name, emoji: me.emoji, counter, history: history.slice(-30) }));
   broadcast({ type: 'presence', who: me.id, online: wss.clients.size, text: `${me.emoji} ${me.name} 님이 들어왔어요` });
   ws.on('message', (raw) => {
