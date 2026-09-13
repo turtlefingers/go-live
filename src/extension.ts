@@ -11,7 +11,8 @@ import { StaticServer } from './runner/static';
 import { NpmSession } from './runner/npm';
 import { freePort } from './runner/commands';
 import { ProcessTerminal } from './runner/pty';
-import { portOf } from './runner/url';
+import { portOf, urlForFile } from './runner/url';
+import { resolveStaticRoot } from './runner/static';
 import { classify, Classification, NODE_DOWNLOAD_URL, UserAction } from './errors';
 import { setLanguage, t } from './l10n';
 
@@ -19,6 +20,8 @@ interface StartOptions {
   forceInstall?: boolean;
   cleanInstall?: boolean;
   port?: number;
+  /** 정적 모드에서 시작 후 브라우저로 열 파일 (절대 경로). npm 모드에서는 무시된다 */
+  openFile?: string;
 }
 
 class Controller implements vscode.Disposable {
@@ -69,7 +72,7 @@ class Controller implements vscode.Disposable {
       if (hasPackageJson(root)) {
         await this.startNpm(root, config, opts);
       } else {
-        await this.startStatic(root, config);
+        await this.startStatic(root, config, opts);
       }
     } catch (e) {
       this.status.set('error');
@@ -123,16 +126,43 @@ class Controller implements vscode.Disposable {
     this.terminal?.show(false);
   }
 
+  /** 탐색기/편집기 우클릭 "Go Live로 열기": 서버가 없으면 띄우고, 그 파일 주소로 브라우저를 연다 */
+  async openWith(resource?: vscode.Uri): Promise<void> {
+    const uri = resource ?? vscode.window.activeTextEditor?.document.uri;
+    const file = uri?.scheme === 'file' ? uri.fsPath : undefined;
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) {
+      void vscode.window.showWarningMessage(t('msg.noWorkspace'));
+      return;
+    }
+    if (this.status.state !== 'running') {
+      await this.start({ openFile: file });
+      return;
+    }
+    const url = this.status.detail.url;
+    if (!url) {
+      return;
+    }
+    const config = getConfig(folder);
+    if (hasPackageJson(folder.uri.fsPath)) {
+      await openBrowser(url, config.browser);
+      return;
+    }
+    const serveRoot = resolveStaticRoot(folder.uri.fsPath, config.staticRoot) ?? folder.uri.fsPath;
+    await openBrowser(file ? urlForFile(url, serveRoot, file) : url, config.browser);
+  }
+
   // ── 정적 모드 ───────────────────────────────────────────────────────────
 
-  private async startStatic(root: string, config: ReturnType<typeof getConfig>): Promise<void> {
+  private async startStatic(root: string, config: ReturnType<typeof getConfig>, opts: StartOptions): Promise<void> {
     this.status.set('starting');
     const url = await this.staticServer.start(root, config.staticRoot.trim(), config.staticPort);
     if (this.stopRequested) {
       return;
     }
     this.status.set('running', { url, port: portOf(url) });
-    await openBrowser(url, config.browser);
+    const serveRoot = resolveStaticRoot(root, config.staticRoot) ?? root;
+    await openBrowser(opts.openFile ? urlForFile(url, serveRoot, opts.openFile) : url, config.browser);
   }
 
   // ── npm 모드 ────────────────────────────────────────────────────────────
@@ -212,6 +242,8 @@ class Controller implements vscode.Disposable {
           void vscode.window.showWarningMessage(t(outcome.warnKey));
         }
         if (outcome.url) {
+          // npm 모드는 dev 서버가 라우팅을 정하므로 우클릭한 파일과 무관하게 루트를 연다
+          // (Vite 는 about.html 을 서빙하지만 CRA/Next 는 그 경로가 404)
           await openBrowser(outcome.url, config.browser);
         }
         return;
@@ -325,7 +357,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('goLive.start', () => c.start()),
     vscode.commands.registerCommand('goLive.stop', () => c.stop()),
     vscode.commands.registerCommand('goLive.reinstall', () => c.reinstall()),
-    vscode.commands.registerCommand('goLive.showTerminal', () => c.showTerminal())
+    vscode.commands.registerCommand('goLive.showTerminal', () => c.showTerminal()),
+    vscode.commands.registerCommand('goLive.openWith', (resource?: vscode.Uri) => c.openWith(resource))
   );
 }
 

@@ -71,3 +71,15 @@ test('isPreferredUrlLine', () => {
   assert.equal(isPreferredUrlLine('<i> [webpack-dev-server] Loopback: http://localhost:8080/'), true);
   assert.equal(isPreferredUrlLine('Server running at http://localhost:1234'), false);
 });
+
+import { urlForFile } from '../../src/runner/url';
+
+test('urlForFile: 루트 기준 상대 경로, index.html 은 폴더로, 루트 밖은 base', () => {
+  const base = 'http://localhost:5500/';
+  assert.equal(urlForFile(base, '/ws/proj', '/ws/proj/index.html'), 'http://localhost:5500/');
+  assert.equal(urlForFile(base, '/ws/proj', '/ws/proj/about.html'), 'http://localhost:5500/about.html');
+  assert.equal(urlForFile(base, '/ws/proj', '/ws/proj/pages/index.html'), 'http://localhost:5500/pages/');
+  assert.equal(urlForFile(base, '/ws/proj', '/ws/proj/한글 폴더/소개.html'), 'http://localhost:5500/%ED%95%9C%EA%B8%80%20%ED%8F%B4%EB%8D%94/%EC%86%8C%EA%B0%9C.html');
+  assert.equal(urlForFile(base, '/ws/proj', '/ws/other/x.html'), 'http://localhost:5500/');
+  assert.equal(urlForFile('http://localhost:5173', '/ws/proj', '/ws/proj/about.html'), 'http://localhost:5173/about.html');
+});

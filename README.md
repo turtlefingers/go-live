@@ -37,6 +37,8 @@ Vite, webpack, Parcel, Next.js, Astro, SvelteKit, Express, `concurrently`로 묶
 3. 브라우저가 열립니다. 저장하면 자동 반영됩니다.
 4. **Stop** 을 누르면 끝.
 
+탐색기나 편집기에서 HTML 파일을 우클릭해 **Go Live로 열기**를 눌러도 됩니다. 정적 프로젝트에서는 그 파일 주소로 브라우저가 열리고, npm 프로젝트에서는 dev 서버 주소가 열립니다.
+
 단축키는 Live Server와 같습니다. `Alt+L Alt+O` 시작, `Alt+L Alt+C` 중지.
 
 명령 팔레트: `Go Live: 시작`, `Go Live: 중지`, `Go Live: 패키지 다시 설치`(node_modules 삭제 후 재설치), `Go Live: 터미널 보기`.

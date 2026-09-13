@@ -28,28 +28,27 @@
     "commands": [
       {
         "command": "goLive.toggle",
-        "title": "시작/중지",
-        "category": "Go Live"
+        "title": "Go Live 시작/중지"
       },
       {
         "command": "goLive.start",
-        "title": "시작",
-        "category": "Go Live"
+        "title": "Go Live 시작"
       },
       {
         "command": "goLive.stop",
-        "title": "중지",
-        "category": "Go Live"
+        "title": "Go Live 중지"
       },
       {
         "command": "goLive.reinstall",
-        "title": "패키지 다시 설치",
-        "category": "Go Live"
+        "title": "Go Live: 패키지 다시 설치"
       },
       {
         "command": "goLive.showTerminal",
-        "title": "터미널 보기",
-        "category": "Go Live"
+        "title": "Go Live: 터미널 보기"
+      },
+      {
+        "command": "goLive.openWith",
+        "title": "Go Live로 열기"
       }
     ],
     "keybindings": [
@@ -118,6 +117,39 @@
           "description": "정적 모드에서 서빙할 하위 폴더 (예: src, public)"
         }
       }
+    },
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "goLive.openWith",
+          "when": "resourceExtname == .html || resourceExtname == .htm",
+          "group": "navigation@1"
+        },
+        {
+          "command": "goLive.stop",
+          "when": "goLive.running && (resourceExtname == .html || resourceExtname == .htm)",
+          "group": "navigation@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "goLive.openWith",
+          "when": "resourceLangId == html",
+          "group": "navigation@1"
+        },
+        {
+          "command": "goLive.stop",
+          "when": "goLive.running && resourceLangId == html",
+          "group": "navigation@2"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "goLive.openWith",
+          "when": "resourceLangId == html",
+          "group": "navigation@1"
+        }
+      ]
     }
   },
   "scripts": {

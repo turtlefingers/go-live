@@ -42,6 +42,8 @@ export class StatusBar implements vscode.Disposable {
     this._state = state;
     this._detail = detail;
     this.render();
+    // 우클릭 메뉴의 when 절에서 쓴다 (goLive.running)
+    void vscode.commands.executeCommand('setContext', 'goLive.running', state === 'running');
   }
 
   private render(): void {

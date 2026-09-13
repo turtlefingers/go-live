@@ -84,3 +84,23 @@ export class UrlDetector {
     return found;
   }
 }
+
+/**
+ * 서버 루트 기준으로 파일의 URL 을 만든다. index.html 은 폴더 경로로, 루트 밖 파일은 base 그대로.
+ * 경로 구분자는 OS 와 무관하게 처리한다 (Windows 의 \\ 포함).
+ */
+export function urlForFile(baseUrl: string, root: string, file: string): string {
+  const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '');
+  const r = norm(root);
+  const f = norm(file);
+  const base = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+  const lower = (x: string) => (process.platform === 'win32' || process.platform === 'darwin' ? x.toLowerCase() : x);
+  if (!(lower(f) === lower(r) || lower(f).startsWith(lower(r) + '/'))) {
+    return base;
+  }
+  let rel = f.slice(r.length).replace(/^\//, '');
+  if (/(^|\/)index\.html?$/i.test(rel)) {
+    rel = rel.replace(/index\.html?$/i, '');
+  }
+  return base + rel.split('/').map(encodeURIComponent).join('/');
+}
