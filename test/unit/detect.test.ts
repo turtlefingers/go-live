@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { detectPackageManager, pickScript, readPackageJson, lockfileHash, withExtraPath, pathKey, normalizePackageManagerSetting, isSafeScriptName } from '../../src/detect';
+import { findNearestProjectDir, detectPackageManager, pickScript, readPackageJson, lockfileHash, withExtraPath, pathKey, normalizePackageManagerSetting, isSafeScriptName } from '../../src/detect';
 import { devArgs, installArgs, quoteIfNeeded } from '../../src/runner/commands';
 
 function tmpProject(files: Record<string, string>): string {
@@ -90,4 +90,18 @@ test('명령 인자 구성', () => {
   if (process.platform !== 'win32') {
     assert.equal(quoteIfNeeded('my script'), "'my script'");
   }
+});
+
+test('findNearestProjectDir: 위로 올라가며 가장 가까운 package.json, 워크스페이스 밖/node_modules 제외', () => {
+  const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'go-live-ws-'));
+  fs.mkdirSync(path.join(ws, 'a', 'src'), { recursive: true });
+  fs.mkdirSync(path.join(ws, 'a', 'node_modules', 'x'), { recursive: true });
+  fs.mkdirSync(path.join(ws, 'plain'), { recursive: true });
+  fs.writeFileSync(path.join(ws, 'a', 'package.json'), '{}');
+  fs.writeFileSync(path.join(ws, 'a', 'node_modules', 'x', 'package.json'), '{}');
+  assert.equal(findNearestProjectDir(path.join(ws, 'a', 'src'), ws), path.join(ws, 'a'));
+  assert.equal(findNearestProjectDir(path.join(ws, 'a'), ws), path.join(ws, 'a'));
+  assert.equal(findNearestProjectDir(path.join(ws, 'plain'), ws), undefined);
+  assert.equal(findNearestProjectDir(path.join(ws, 'a', 'node_modules', 'x'), ws), path.join(ws, 'a'));
+  assert.equal(findNearestProjectDir(os.tmpdir(), ws), undefined);
 });

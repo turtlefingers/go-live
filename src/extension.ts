@@ -6,7 +6,8 @@
 import * as vscode from 'vscode';
 import { StatusBar } from './statusBar';
 import { getConfig, BrowserMode } from './config';
-import { hasPackageJson, resolveNodeEnv } from './detect';
+import { hasPackageJson, resolveNodeEnv, findNearestProjectDir } from './detect';
+import * as path from 'path';
 import { StaticServer } from './runner/static';
 import { NpmSession } from './runner/npm';
 import { freePort } from './runner/commands';
@@ -22,6 +23,8 @@ interface StartOptions {
   port?: number;
   /** 정적 모드에서 시작 후 브라우저로 열 파일 (절대 경로). npm 모드에서는 무시된다 */
   openFile?: string;
+  /** 실행할 프로젝트 폴더. 없으면 워크스페이스 루트. 워크스페이스 안이어야 한다 */
+  root?: string;
 }
 
 class Controller implements vscode.Disposable {
@@ -32,6 +35,8 @@ class Controller implements vscode.Disposable {
   private terminal: vscode.Terminal | undefined;
   private busy = false;
   private stopRequested = false;
+  /** 지금 실행 중(또는 시작 중)인 프로젝트 폴더 */
+  private activeRoot: string | undefined;
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor(private readonly context: vscode.ExtensionContext) {
@@ -62,8 +67,10 @@ class Controller implements vscode.Disposable {
     if (this.busy || this.status.isActive) {
       return;
     }
-    const root = folder.uri.fsPath;
+    const wsRoot = folder.uri.fsPath;
+    const root = opts.root && (opts.root === wsRoot || opts.root.startsWith(wsRoot + path.sep)) ? opts.root : wsRoot;
     const config = getConfig(folder);
+    this.activeRoot = root;
 
     this.busy = true;
     this.stopRequested = false;
@@ -105,6 +112,7 @@ class Controller implements vscode.Disposable {
       session.dispose();
     }
     await this.staticServer.stop();
+    this.activeRoot = undefined;
     this.status.set('idle');
   }
 
@@ -126,7 +134,12 @@ class Controller implements vscode.Disposable {
     this.terminal?.show(false);
   }
 
-  /** 탐색기/편집기 우클릭 "Go Live로 열기": 서버가 없으면 띄우고, 그 파일 주소로 브라우저를 연다 */
+  /**
+   * 우클릭 "Open with Go Live".
+   * - package.json → 그 폴더를 npm 모드로 실행
+   * - HTML → 가장 가까운 package.json 이 있으면 그 프로젝트를 npm 모드로, 없으면 정적 모드로 그 파일 주소를 연다
+   * - 다른 프로젝트가 실행 중이면 먼저 중지한다
+   */
   async openWith(resource?: vscode.Uri): Promise<void> {
     const uri = resource ?? vscode.window.activeTextEditor?.document.uri;
     const file = uri?.scheme === 'file' ? uri.fsPath : undefined;
@@ -135,21 +148,39 @@ class Controller implements vscode.Disposable {
       void vscode.window.showWarningMessage(t('msg.noWorkspace'));
       return;
     }
-    if (this.status.state !== 'running') {
-      await this.start({ openFile: file });
-      return;
-    }
-    const url = this.status.detail.url;
-    if (!url) {
-      return;
-    }
+    const wsRoot = folder.uri.fsPath;
     const config = getConfig(folder);
-    if (hasPackageJson(folder.uri.fsPath)) {
-      await openBrowser(url, config.browser);
+
+    let targetRoot = wsRoot;
+    let openFile: string | undefined;
+    if (file && path.basename(file) === 'package.json') {
+      targetRoot = path.dirname(file);
+    } else if (file) {
+      const project = findNearestProjectDir(path.dirname(file), wsRoot);
+      if (project) {
+        targetRoot = project;
+      } else {
+        openFile = file;
+      }
+    }
+
+    if (this.status.isActive && this.activeRoot === targetRoot) {
+      const url = this.status.detail.url;
+      if (!url) {
+        return;
+      }
+      if (hasPackageJson(targetRoot)) {
+        await openBrowser(url, config.browser);
+      } else {
+        const serveRoot = resolveStaticRoot(targetRoot, config.staticRoot) ?? targetRoot;
+        await openBrowser(openFile ? urlForFile(url, serveRoot, openFile) : url, config.browser);
+      }
       return;
     }
-    const serveRoot = resolveStaticRoot(folder.uri.fsPath, config.staticRoot) ?? folder.uri.fsPath;
-    await openBrowser(file ? urlForFile(url, serveRoot, file) : url, config.browser);
+    if (this.status.isActive) {
+      await this.stop();
+    }
+    await this.start({ root: targetRoot, openFile });
   }
 
   // ── 정적 모드 ───────────────────────────────────────────────────────────

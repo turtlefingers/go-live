@@ -55,6 +55,8 @@ const URL_TIMEOUT_MS = 30_000;
 const URL_GRACE_MS = 2_500;
 const MAX_ATTEMPTS = 5;
 export const LOCKFILE_HASH_KEY = 'goLive.lockfileHash';
+/** 워크스페이스 안에 프로젝트가 여러 개일 수 있으므로 폴더별로 저장한다 */
+export const lockfileHashKey = (root: string) => `${LOCKFILE_HASH_KEY}:${root}`;
 
 export class NpmSession {
   private cancelled = false;
@@ -106,7 +108,7 @@ export class NpmSession {
       config.alwaysInstall ||
       this.clean ||
       !hasNodeModules(root) ||
-      this.o.workspaceState.get<string>(LOCKFILE_HASH_KEY) !== lockfileHash(root);
+      this.o.workspaceState.get<string>(lockfileHashKey(root)) !== lockfileHash(root);
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       if (this.cancelled) {
@@ -136,7 +138,7 @@ export class NpmSession {
           }
           return this.fail('install', cls);
         }
-        await this.o.workspaceState.update(LOCKFILE_HASH_KEY, lockfileHash(root));
+        await this.o.workspaceState.update(lockfileHashKey(root), lockfileHash(root));
         this.needsInstall = false;
       }
 

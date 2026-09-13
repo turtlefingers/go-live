@@ -5,7 +5,7 @@
  */
 import * as path from 'path';
 import * as net from 'net';
-import { NpmSession, LOCKFILE_HASH_KEY } from '../../src/runner/npm';
+import { NpmSession, lockfileHashKey } from '../../src/runner/npm';
 import { ProcessTerminal } from '../../src/runner/pty';
 import { freePort } from '../../src/runner/commands';
 import { resolveNodeEnv } from '../../src/detect';
@@ -85,7 +85,7 @@ async function holdPort(port: number): Promise<{ close: () => void }> {
       const res = await fetch(outcome.url);
       const html = await res.text();
       expect(res.status === 200 && html.includes('/main.js'), `fetch ${outcome.url} → 200`);
-      expect(state.get(LOCKFILE_HASH_KEY) !== undefined, 'lockfile hash stored');
+      expect(state.get(lockfileHashKey(path.join(FIXTURES, 'vite-vanilla'))) !== undefined, 'lockfile hash stored');
       const t0 = Date.now();
       await session.stop();
       expect(!pty.isRunning, `stopped in ${Date.now() - t0}ms`);

@@ -42,6 +42,28 @@ export function hasPackageJson(root: string): boolean {
   return fs.existsSync(path.join(root, 'package.json'));
 }
 
+/**
+ * startDir 에서 위로 올라가며 package.json 이 있는 가장 가까운 폴더를 찾는다.
+ * stopDir(워크스페이스 루트) 밖으로는 나가지 않는다. 없으면 undefined.
+ * node_modules 안의 package.json 은 프로젝트가 아니므로 건너뛴다.
+ */
+export function findNearestProjectDir(startDir: string, stopDir: string): string | undefined {
+  const stop = path.resolve(stopDir);
+  let dir = path.resolve(startDir);
+  if (dir !== stop && !dir.startsWith(stop + path.sep)) {
+    return undefined;
+  }
+  while (true) {
+    if (!dir.split(path.sep).includes('node_modules') && fs.existsSync(path.join(dir, 'package.json'))) {
+      return dir;
+    }
+    if (dir === stop) {
+      return undefined;
+    }
+    dir = path.dirname(dir);
+  }
+}
+
 /** 없으면 undefined, 파싱 실패면 'invalid' */
 export function readPackageJson(root: string): PackageJson | undefined | 'invalid' {
   const file = path.join(root, 'package.json');

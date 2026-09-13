@@ -28,27 +28,27 @@
     "commands": [
       {
         "command": "goLive.toggle",
-        "title": "Go Live 시작/중지"
+        "title": "Toggle Go Live"
       },
       {
         "command": "goLive.start",
-        "title": "Go Live 시작"
+        "title": "Start Go Live"
       },
       {
         "command": "goLive.stop",
-        "title": "Go Live 중지"
+        "title": "Stop Go Live"
       },
       {
         "command": "goLive.reinstall",
-        "title": "Go Live: 패키지 다시 설치"
+        "title": "Go Live: Reinstall packages"
       },
       {
         "command": "goLive.showTerminal",
-        "title": "Go Live: 터미널 보기"
+        "title": "Go Live: Show terminal"
       },
       {
         "command": "goLive.openWith",
-        "title": "Go Live로 열기"
+        "title": "Open with Go Live"
       }
     ],
     "keybindings": [
@@ -122,31 +122,31 @@
       "explorer/context": [
         {
           "command": "goLive.openWith",
-          "when": "resourceExtname == .html || resourceExtname == .htm",
+          "when": "resourceExtname == .html || resourceExtname == .htm || resourceFilename == package.json",
           "group": "navigation@1"
         },
         {
           "command": "goLive.stop",
-          "when": "goLive.running && (resourceExtname == .html || resourceExtname == .htm)",
+          "when": "goLive.running && (resourceExtname == .html || resourceExtname == .htm || resourceFilename == package.json)",
           "group": "navigation@2"
         }
       ],
       "editor/context": [
         {
           "command": "goLive.openWith",
-          "when": "resourceLangId == html",
+          "when": "resourceLangId == html || resourceFilename == package.json",
           "group": "navigation@1"
         },
         {
           "command": "goLive.stop",
-          "when": "goLive.running && resourceLangId == html",
+          "when": "goLive.running && (resourceLangId == html || resourceFilename == package.json)",
           "group": "navigation@2"
         }
       ],
       "editor/title/context": [
         {
           "command": "goLive.openWith",
-          "when": "resourceLangId == html",
+          "when": "resourceLangId == html || resourceFilename == package.json",
           "group": "navigation@1"
         }
       ]
