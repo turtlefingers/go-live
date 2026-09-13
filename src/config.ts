@@ -13,6 +13,8 @@ export interface GoLiveConfig {
   staticRoot: string;
   inspect: boolean;
   devtoolsWorkspace: boolean;
+  staticHost: '127.0.0.1' | '0.0.0.0';
+  cors: boolean;
 }
 
 const BROWSER_MODES: ReadonlySet<string> = new Set(['external', 'simple', 'none']);
@@ -36,5 +38,7 @@ export function getConfig(scope?: vscode.ConfigurationScope): GoLiveConfig {
     staticRoot: str('staticRoot'),
     inspect: c.get<unknown>('inspect', true) !== false,
     devtoolsWorkspace: c.get<unknown>('devtoolsWorkspace', true) !== false,
+    staticHost: c.get<unknown>('staticHost', 'localhost') === 'network' ? '0.0.0.0' : '127.0.0.1',
+    cors: c.get<unknown>('cors', false) === true,
   };
 }

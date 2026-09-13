@@ -192,6 +192,8 @@ class Controller implements vscode.Disposable {
     const url = await this.staticServer.start(root, config.staticRoot.trim(), config.staticPort, {
       inspect: config.inspect,
       devtoolsUuid: config.devtoolsWorkspace ? this.devtoolsUuidFor(root) : undefined,
+      host: config.staticHost,
+      cors: config.cors,
     });
     if (this.stopRequested) {
       return;

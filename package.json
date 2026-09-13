@@ -2,7 +2,7 @@
   "name": "go-live",
   "displayName": "Go Live - Live Server for npm & Vite",
   "description": "Live Server that also runs npm/Vite projects with one click — 정적 HTML이든 npm 프로젝트든 상태바 버튼 하나로 실행",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "doodlefingers",
   "license": "MIT",
   "engines": {
@@ -134,6 +134,24 @@
           "type": "boolean",
           "default": true,
           "description": "정적 모드에서 Chrome DevTools 워크스페이스를 자동 연결한다. DevTools 의 Styles 패널에서 고친 값을 Cmd/Ctrl+S 로 원본 CSS 파일에 저장할 수 있다 (Chromium 135 이상)"
+        },
+        "goLive.staticHost": {
+          "type": "string",
+          "enum": [
+            "localhost",
+            "network"
+          ],
+          "enumDescriptions": [
+            "이 컴퓨터에서만 접근 (기본)",
+            "같은 와이파이의 휴대폰·태블릿에서도 접근"
+          ],
+          "default": "localhost",
+          "description": "정적 모드 서버를 어디까지 열지. 휴대폰으로 확인할 때만 network 로 바꾸세요"
+        },
+        "goLive.cors": {
+          "type": "boolean",
+          "default": false,
+          "description": "정적 모드에서 모든 출처의 요청을 허용(CORS *). 다른 포트의 페이지에서 이 서버의 파일을 불러올 때만 켜세요"
         }
       }
     },

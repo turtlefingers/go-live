@@ -20,7 +20,7 @@ const FIXTURES = path.resolve(__dirname, '../test/fixtures');
 const SKIP_NEXT = process.argv.includes('--skip-next');
 const config: GoLiveConfig = {
   staticPort: 5600, npmScript: '', packageManager: 'auto', alwaysInstall: false,
-  browser: 'none', showTerminalOnStart: false, staticRoot: '', inspect: true, devtoolsWorkspace: true,
+  browser: 'none', showTerminalOnStart: false, staticRoot: '', inspect: true, devtoolsWorkspace: true, staticHost: '127.0.0.1', cors: false,
 };
 
 class MemoryMemento {

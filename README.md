@@ -93,6 +93,20 @@ macOS GUI 앱이 셸 PATH를 물려받지 못해 Node를 못 찾는 경우(nvm, 
 | `goLive.staticRoot` | (루트) | 정적 모드에서 서빙할 하위 폴더 |
 | `goLive.inspect` | true | 정적 모드에서 Alt+클릭한 요소의 CSS 규칙을 에디터에서 열기 |
 | `goLive.devtoolsWorkspace` | true | 정적 모드에서 Chrome DevTools 워크스페이스 자동 연결 |
+| `goLive.staticHost` | localhost | 정적 서버 공개 범위. `network`로 바꾸면 같은 와이파이의 휴대폰에서도 접근 |
+| `goLive.cors` | false | 정적 서버에 CORS `*` 헤더. 다른 포트의 페이지에서 파일을 불러올 때만 |
+
+## 보안
+
+정적 모드 서버는 개발용이지만 기본값을 보수적으로 잡았습니다.
+
+- 이 컴퓨터(127.0.0.1)에서만 접근됩니다. 휴대폰으로 확인하려면 `goLive.staticHost`를 `network`로 바꾸세요.
+- `.env`, `.git` 같은 숨김 파일과 폴더는 서빙하지 않습니다.
+- Host 헤더가 localhost가 아니면 거부합니다 (DNS 리바인딩 방지). network 모드에서는 사설 IP 대역을 허용합니다.
+- CORS 헤더는 기본으로 붙지 않습니다.
+- 프로젝트 폴더 밖(`../`, 심볼릭 링크)은 서빙하지 않습니다.
+
+브라우저로 가는 파일에는 API 키 같은 비밀을 넣지 마세요. 정적이든 Vite든 번들에 그대로 들어갑니다.
 
 ## 개발
 

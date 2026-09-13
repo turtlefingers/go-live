@@ -23,6 +23,8 @@ const config: GoLiveConfig = {
   staticRoot: '',
   inspect: true,
   devtoolsWorkspace: true,
+  staticHost: '127.0.0.1',
+  cors: false,
 };
 
 class MemoryMemento {

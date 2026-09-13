@@ -86,6 +86,38 @@ export interface StaticServerOptions {
   devtoolsUuid?: string;
   /** Alt+클릭 요소 검사 → 에디터 점프 */
   inspect?: boolean;
+  /** 바인딩 주소. 기본 127.0.0.1 (이 컴퓨터만). '0.0.0.0' 이면 같은 네트워크의 기기(휴대폰)에서도 접근 */
+  host?: '127.0.0.1' | '0.0.0.0';
+  /** Access-Control-Allow-Origin: * 를 붙일지. 기본 false */
+  cors?: boolean;
+}
+
+/** Host 헤더가 이 서버를 가리키는지 확인한다 (DNS 리바인딩 방지). LAN 모드에서는 사설 대역도 허용 */
+export function isAllowedHost(hostHeader: string | undefined, lan: boolean): boolean {
+  if (!hostHeader) {
+    return false;
+  }
+  const host = hostHeader.replace(/:\d+$/, '').replace(/^\[(.*)\]$/, '$1').toLowerCase();
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.localhost')) {
+    return true;
+  }
+  if (!lan) {
+    return false;
+  }
+  return (
+    /^10\.\d+\.\d+\.\d+$/.test(host) ||
+    /^192\.168\.\d+\.\d+$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host) ||
+    /^169\.254\.\d+\.\d+$/.test(host) ||
+    host.endsWith('.local') ||
+    /^f[cd][0-9a-f]{2}:/.test(host) ||
+    /^fe80:/.test(host)
+  );
+}
+
+/** 숨김 파일/폴더(.env, .git, .vscode …)는 서빙하지 않는다 */
+export function hasHiddenSegment(pathname: string): boolean {
+  return pathname.split('/').some((seg) => seg.length > 1 && seg.startsWith('.'));
 }
 
 /** 브라우저에 주입되는 클라이언트: 리로드 + (옵션) Alt+클릭 검사 */
@@ -258,7 +290,7 @@ export class StaticServer extends EventEmitter {
     });
     this.server = server;
 
-    const actualPort = await this.listen(server, port);
+    const actualPort = await this.listen(server, port, options.host ?? '127.0.0.1');
     this.startWatch();
     return `http://localhost:${actualPort}/`;
   }
@@ -291,18 +323,18 @@ export class StaticServer extends EventEmitter {
 
   // ── listen ────────────────────────────────────────────────────────────
 
-  private listen(server: http.Server, port: number): Promise<number> {
+  private listen(server: http.Server, port: number, host: string): Promise<number> {
     return new Promise((resolve, reject) => {
       const onError = (e: NodeJS.ErrnoException) => {
         if (e.code === 'EADDRINUSE' && port !== 0) {
           server.removeListener('error', onError);
-          this.listen(server, 0).then(resolve, reject);
+          this.listen(server, 0, host).then(resolve, reject);
         } else {
           reject(e);
         }
       };
       server.once('error', onError);
-      server.listen(port, () => {
+      server.listen(port, host, () => {
         server.removeListener('error', onError);
         const addr = server.address();
         resolve(typeof addr === 'object' && addr ? addr.port : port);
@@ -313,7 +345,13 @@ export class StaticServer extends EventEmitter {
   // ── HTTP ──────────────────────────────────────────────────────────────
 
   private handle(req: http.IncomingMessage, res: http.ServerResponse): void {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (!isAllowedHost(req.headers.host, this.options.host === '0.0.0.0')) {
+      res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return void res.end('Forbidden');
+    }
+    if (this.options.cors) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
     res.setHeader('Cache-Control', 'no-cache');
     let pathname: string;
     try {
@@ -331,6 +369,9 @@ export class StaticServer extends EventEmitter {
       }
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       return void res.end(JSON.stringify({ workspace: { root: this.rootReal, uuid: this.options.devtoolsUuid } }));
+    }
+    if (hasHiddenSegment(pathname)) {
+      return this.notFound(res, pathname);
     }
 
     const resolved = this.resolveFile(pathname);
@@ -432,7 +473,7 @@ export class StaticServer extends EventEmitter {
   private sendListing(res: http.ServerResponse, dir: string, pathname: string): void {
     const entries = fs
       .readdirSync(dir, { withFileTypes: true })
-      .filter((e) => !IGNORED_DIRS.has(e.name))
+      .filter((e) => !IGNORED_DIRS.has(e.name) && !e.name.startsWith('.'))
       .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name, 'ko'));
     const items = entries
       .map((e) => {
@@ -461,7 +502,7 @@ export class StaticServer extends EventEmitter {
   private handleUpgrade(req: http.IncomingMessage, socket: net.Socket): void {
     const key = req.headers['sec-websocket-key'];
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
-    if (pathname !== WS_PATH || typeof key !== 'string') {
+    if (pathname !== WS_PATH || typeof key !== 'string' || !isAllowedHost(req.headers.host, this.options.host === '0.0.0.0')) {
       socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
       return;
     }

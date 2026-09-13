@@ -4,8 +4,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as net from 'net';
+import * as http from 'http';
 import * as crypto from 'crypto';
-import { StaticServer, resolveStaticRoot, isInside, InspectEvent } from '../../src/runner/static';
+import { StaticServer, resolveStaticRoot, isInside, InspectEvent, isAllowedHost, hasHiddenSegment } from '../../src/runner/static';
 import { encodeMaskedText, decodeFrames } from '../../src/runner/wsFrame';
 
 function project(): { root: string; outside: string } {
@@ -168,4 +169,51 @@ test('inspect 옵션이 꺼져 있으면 무시한다', async () => {
     assert.equal(fired, false);
     sock.close();
   } finally { await s.stop(); }
+});
+
+test('개발 서버 보안 기본값: localhost 바인딩, CORS 없음, 숨김 파일 404, Host 검사', async () => {
+  const { root } = project();
+  fs.writeFileSync(path.join(root, '.env'), 'SECRET=1');
+  fs.mkdirSync(path.join(root, '.git'));
+  fs.writeFileSync(path.join(root, '.git', 'config'), '[core]');
+  const s = new StaticServer();
+  const url = await s.start(root, '', 0, {});
+  try {
+    const port = new URL(url).port;
+    // 바인딩: 127.0.0.1 로만 (LAN 주소로는 연결 불가)
+    const ifaces = Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal) as os.NetworkInterfaceInfo[];
+    if (ifaces[0]) {
+      const reachable = await new Promise<boolean>((res) => { const c = net.connect(Number(port), ifaces[0].address); c.on('connect', () => { c.destroy(); res(true); }); c.on('error', () => res(false)); });
+      assert.equal(reachable, false, `LAN 주소 ${ifaces[0].address} 에서는 연결되지 않아야 한다`);
+    }
+    const idx = await fetch(url);
+    assert.equal(idx.status, 200);
+    assert.equal(idx.headers.get('access-control-allow-origin'), null, 'CORS 헤더 없음');
+    assert.equal((await fetch(url + '.env')).status, 404);
+    assert.equal((await fetch(url + '.git/config')).status, 404);
+    // fetch 는 Host 헤더 덮어쓰기를 무시하므로 원시 요청으로 검사한다
+    const rawStatus = (host: string) => new Promise<number>((res, rej) => http.get({ host: '127.0.0.1', port: Number(port), path: '/', headers: { Host: host } }, (r) => { r.resume(); res(r.statusCode ?? 0); }).on('error', rej));
+    assert.equal(await rawStatus('evil.com'), 403, 'Host 헤더가 localhost 가 아니면 403');
+    assert.equal(await rawStatus('192.168.0.9:' + port), 403, 'localhost 모드에서는 사설 IP Host 도 403');
+    assert.equal(await rawStatus('127.0.0.1:' + port), 200);
+    assert.equal(await rawStatus('localhost:' + port), 200);
+  } finally { await s.stop(); }
+  // 옵션으로 켜면 CORS 헤더가 붙는다
+  const s2 = new StaticServer();
+  const url2 = await s2.start(root, '', 0, { cors: true });
+  try { assert.equal((await fetch(url2)).headers.get('access-control-allow-origin'), '*'); } finally { await s2.stop(); }
+});
+
+test('isAllowedHost / hasHiddenSegment', () => {
+  assert.equal(isAllowedHost('localhost:5500', false), true);
+  assert.equal(isAllowedHost('127.0.0.1:5500', false), true);
+  assert.equal(isAllowedHost('[::1]:5500', false), true);
+  assert.equal(isAllowedHost('evil.com', false), false);
+  assert.equal(isAllowedHost('192.168.0.5:5500', false), false, 'localhost 모드에서는 사설 IP 도 거부');
+  assert.equal(isAllowedHost('192.168.0.5:5500', true), true, 'network 모드에서는 사설 IP 허용');
+  assert.equal(isAllowedHost('evil.com', true), false);
+  assert.equal(hasHiddenSegment('/.env'), true);
+  assert.equal(hasHiddenSegment('/a/.git/config'), true);
+  assert.equal(hasHiddenSegment('/a/b.css'), false);
+  assert.equal(hasHiddenSegment('/.well-known/x'), true, 'devtools.json 은 그 전에 따로 처리된다');
 });
