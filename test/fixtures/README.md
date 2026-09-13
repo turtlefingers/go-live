@@ -34,3 +34,5 @@
 ## 휴대폰으로 보기 / 재시작과 실시간 연결
 
 상태바 Stop 옆의 📱 버튼은 먼저 LAN 주소로 접속을 시도하고, **되면 재시작하지 않습니다.** `ws-chat`, `express-api`, `start-only` 처럼 `server.listen(port)` 로 모든 인터페이스에 듣는 서버는 그대로 QR 만 뜹니다. Vite 처럼 localhost 에만 듣는 서버만 `--host 0.0.0.0` 으로 다시 띄우며, 그때는 Vite 의 HMR 클라이언트가 스스로 재연결합니다. `ws-chat` 페이지는 서버가 재시작돼도 자동으로 다시 붙도록 만들어 두었습니다.
+
+직접 만든 Node 서버(`express-api`, `ws-chat`, `start-only`)는 `node --watch server.js` 로 실행해서 서버 코드를 저장하면 자동으로 재시작됩니다 (Node 22 내장). 브라우저 쪽 자동 새로고침은 없으므로 페이지는 직접 새로고침하거나, ws-chat 처럼 재연결 로직을 둡니다.
