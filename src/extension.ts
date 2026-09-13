@@ -29,6 +29,8 @@ interface StartOptions {
   root?: string;
   /** 휴대폰 등 다른 기기에서 접속할 수 있게 0.0.0.0 에 듣는다 */
   lan?: boolean;
+  /** 브라우저를 열지 않는다 (이미 열려 있는 상태에서 다시 시작할 때) */
+  noBrowser?: boolean;
 }
 
 class Controller implements vscode.Disposable {
@@ -157,7 +159,8 @@ class Controller implements vscode.Disposable {
         void vscode.window.showInformationMessage(t('phone.restarting'));
         await this.stop();
       }
-      await this.start({ lan: true, root: this.activeRoot });
+      // 브라우저는 이미 열려 있으니 다시 열지 않는다. 페이지는 서버가 돌아오면 스스로 다시 연결한다
+      await this.start({ lan: true, root: this.activeRoot, noBrowser: true });
       if (this.status.state !== 'running') {
         return;
       }
@@ -261,6 +264,9 @@ class Controller implements vscode.Disposable {
       return;
     }
     this.status.set('running', { url, port: portOf(url) });
+    if (opts.noBrowser) {
+      return;
+    }
     const serveRoot = resolveStaticRoot(root, config.staticRoot) ?? root;
     await openBrowser(opts.openFile ? urlForFile(url, serveRoot, opts.openFile) : url, config.browser);
   }
@@ -342,7 +348,7 @@ class Controller implements vscode.Disposable {
           this.terminal?.show(true);
           void vscode.window.showWarningMessage(t(outcome.warnKey));
         }
-        if (outcome.url) {
+        if (outcome.url && !opts.noBrowser) {
           // npm 모드는 dev 서버가 라우팅을 정하므로 우클릭한 파일과 무관하게 루트를 연다
           // (Vite 는 about.html 을 서빙하지만 CRA/Next 는 그 경로가 404)
           await openBrowser(outcome.url, config.browser);
