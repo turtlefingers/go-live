@@ -37,7 +37,18 @@ Vite, webpack, Parcel, Next.js, Astro, SvelteKit, Express, `concurrently`로 묶
 3. 브라우저가 열립니다. 저장하면 자동 반영됩니다.
 4. **Stop** 을 누르면 끝.
 
-탐색기나 편집기에서 HTML 파일이나 `package.json`을 우클릭해 **Open with Go Live**를 눌러도 됩니다. `package.json`이면 그 폴더를 npm 프로젝트로 실행하고, HTML이면 가장 가까운 `package.json`이 있는 프로젝트를 실행하거나(없으면 정적 모드) 그 파일 주소를 엽니다. 폴더 하나에 프로젝트 여러 개를 두고 골라 실행할 때 편합니다.
+### 우클릭으로 개별 실행
+
+폴더 하나에 프로젝트가 여러 개 있어도 됩니다. 실행하고 싶은 것을 우클릭하면 됩니다.
+
+| 우클릭한 파일 | 하는 일 |
+|---|---|
+| `package.json` | 그 폴더를 npm 프로젝트로 실행하고 dev 서버 주소를 엽니다 |
+| HTML 파일 (npm 프로젝트 안) | 가장 가까운 `package.json`이 있는 프로젝트를 실행합니다 |
+| HTML 파일 (정적) | 정적 서버를 띄우고 그 파일의 주소를 엽니다 (예: `about.html` → `/about.html`) |
+
+메뉴 이름은 **Open with Go Live**, 실행 중에는 **Stop Go Live**입니다. 다른 프로젝트가 실행 중이면 먼저 중지하고 새로 시작합니다. 탐색기, 편집기 본문, 편집기 탭 어디에서 우클릭해도 같습니다.
+
 
 단축키는 Live Server와 같습니다. `Alt+L Alt+O` 시작, `Alt+L Alt+C` 중지.
 
