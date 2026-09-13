@@ -2,7 +2,7 @@
   "name": "go-live",
   "displayName": "Go Live",
   "description": "Live Server that also runs npm/Vite projects with one click — 정적 HTML이든 npm 프로젝트든 상태바 버튼 하나로 실행",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "doodlefingers",
   "license": "MIT",
   "engines": {
