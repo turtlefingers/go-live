@@ -1,4 +1,4 @@
-# Go Live
+# Go Live - Live Server for npm & Vite
 
 **정적 HTML이든 npm/Vite 프로젝트든, 상태바 버튼 하나로 실행하는 라이브 서버.**
 *Live Server that also runs npm/Vite projects with one click — no terminal, no AI tokens.*
