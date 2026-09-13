@@ -30,6 +30,8 @@ F5 (Run Extension) → Extension Development Host 가 `test/fixtures/static-basi
 | `src/runner/pty.ts` | Pseudoterminal + spawn(detached) + tree-kill/프로세스 그룹 종료 + 감시 프로세스 기동 |
 | `src/runner/watchdog.ts` | dist/watchdog.js 로 따로 번들. 확장 호스트가 죽으면 dev 서버 트리를 정리 (창 닫기/강제 종료 대응) |
 | `src/runner/commands.ts` | 패키지 매니저별 인자 구성, freePort |
+| `src/runner/cssLocate.ts` | CSS 텍스트를 CSSOM 순서로 파싱해 규칙의 줄 번호를 찾는다. 인라인 <style> 은 내용 앞부분으로 대조 (런타임 주입 대비) |
+| `src/runner/wsFrame.ts` | 클라이언트→서버 WebSocket 프레임 해석 (마스킹 텍스트/close/ping) |
 | `src/runner/url.ts` | localhost URL 정규식, ANSI 제거, UrlDetector ("Local:" 줄 우선) |
 | `src/errors.ts` | 에러 매핑 테이블 (`ERROR_RULES`) 과 `classify()` |
 | `src/l10n/ko.json` | 사용자 노출 문자열 전부 |

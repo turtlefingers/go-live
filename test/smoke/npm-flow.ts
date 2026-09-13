@@ -21,6 +21,8 @@ const config: GoLiveConfig = {
   browser: 'none',
   showTerminalOnStart: false,
   staticRoot: '',
+  inspect: true,
+  devtoolsWorkspace: true,
 };
 
 class MemoryMemento {

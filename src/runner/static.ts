@@ -16,10 +16,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as net from 'net';
 import * as crypto from 'crypto';
+import { EventEmitter } from 'events';
 import { t } from '../l10n';
+import { decodeFrames } from './wsFrame';
+import { parseCssBlocks, findBlockByPath, locateInlineRule } from './cssLocate';
 
 export const WS_PATH = '/__go-live/ws';
 export const CLIENT_PATH = '/__go-live/client.js';
+/** Chrome DevTools 자동 워크스페이스 연결 (Chromium 135+). 페이지가 localhost 일 때만 요청한다 */
+export const DEVTOOLS_JSON_PATH = '/.well-known/appspecific/com.chrome.devtools.json';
 const INJECT_TAG = `<script src="${CLIENT_PATH}" data-go-live></script>`;
 const WATCH_DEBOUNCE_MS = 100;
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -45,9 +50,57 @@ export function contentTypeFor(file: string): string {
   return TEXT_TYPES.test(type) ? `${type}; charset=utf-8` : type;
 }
 
-/** 브라우저에 주입되는 리로드 클라이언트 */
-const CLIENT_SCRIPT = `(() => {
+/** 브라우저에서 보내는 요소 검사 요청 */
+export interface InspectRule {
+  /** 외부 시트의 URL 경로 (예: /css/style.css). 인라인 <style> 이면 undefined */
+  sheet?: string;
+  /** 인라인 <style> 의 문서 내 순서 */
+  styleIndex?: number;
+  /** 인라인 <style> 내용 앞부분. 런타임에 끼어든 <style> 때문에 순서가 어긋나도 찾기 위해 */
+  styleText?: string;
+  /** CSSOM 규칙 경로 */
+  path: number[];
+  selector: string;
+}
+
+export interface InspectRequest {
+  page: string;
+  element: string;
+  rules: InspectRule[];
+}
+
+/** 에디터로 넘길 결과 */
+export interface InspectCandidate {
+  file: string;
+  line: number;
+  selector: string;
+}
+
+export interface InspectEvent {
+  element: string;
+  candidates: InspectCandidate[];
+}
+
+export interface StaticServerOptions {
+  /** DevTools 워크스페이스 연결용 uuid. 없으면 devtools.json 을 서빙하지 않는다 */
+  devtoolsUuid?: string;
+  /** Alt+클릭 요소 검사 → 에디터 점프 */
+  inspect?: boolean;
+}
+
+/** 브라우저에 주입되는 클라이언트: 리로드 + (옵션) Alt+클릭 검사 */
+function clientScript(opts: StaticServerOptions): string {
+  const msgs = JSON.stringify({
+    // t() 가 {0} 을 비워 버리므로 자리표시자를 남겨 클라이언트에서 채운다
+    opened: t('inspect.opened', '__FILE__'),
+    none: t('inspect.none'),
+    hint: t('inspect.hint'),
+  });
+  return `(() => {
   const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '${WS_PATH}';
+  const INSPECT = ${opts.inspect ? 'true' : 'false'};
+  const MSG = ${msgs};
+  let ws = null;
   let retries = 0;
   const refreshCss = () => {
     document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
@@ -59,18 +112,97 @@ const CLIENT_SCRIPT = `(() => {
       link.after(next);
     });
   };
+  let toastTimer = null;
+  const toast = (text, ok) => {
+    let el = document.getElementById('__go-live-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '__go-live-toast';
+      el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483647;padding:10px 16px;border-radius:12px;font:14px system-ui,sans-serif;color:#F5F5F5;background:#1E1E1E;box-shadow:0 6px 24px rgba(0,0,0,.25);pointer-events:none;transition:opacity .2s';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.style.background = ok ? '#1E1E1E' : '#B3261E';
+    el.style.opacity = '1';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 2200);
+  };
   const connect = () => {
-    const ws = new WebSocket(url);
+    ws = new WebSocket(url);
     ws.onopen = () => { if (retries > 0) { location.reload(); } retries = 0; };
     ws.onmessage = (e) => {
-      if (e.data === 'reload') { location.reload(); }
-      else if (e.data === 'refreshcss') { refreshCss(); }
+      if (e.data === 'reload') { location.reload(); return; }
+      if (e.data === 'refreshcss') { refreshCss(); return; }
+      if (typeof e.data === 'string' && e.data[0] === '{') {
+        try {
+          const m = JSON.parse(e.data);
+          if (m.type === 'inspect-result') {
+            toast(m.ok ? MSG.opened.replace('__FILE__', m.file + ':' + m.line) : MSG.none, m.ok);
+          }
+        } catch {}
+      }
     };
     ws.onclose = () => { setTimeout(connect, Math.min(500 * 2 ** retries, 5000)); retries += 1; };
   };
   connect();
+
+  if (!INSPECT) { return; }
+  // ── Alt+클릭 요소 검사: 적용된 CSS 규칙을 찾아 서버(에디터)로 보낸다 ──
+  const specificity = (sel) => {
+    const s = sel.replace(/:not\\(([^)]*)\\)/g, '$1');
+    const ids = (s.match(/#[\\w-]+/g) || []).length;
+    const cls = (s.match(/\\.[\\w-]+|\\[[^\\]]+\\]|:(?!:)[\\w-]+(\\([^)]*\\))?/g) || []).length;
+    const tags = (s.match(/(^|[\\s>+~])[a-zA-Z][\\w-]*|::[\\w-]+/g) || []).length;
+    return ids * 10000 + cls * 100 + tags;
+  };
+  const describe = (el) => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList.length ? '.' + [...el.classList].slice(0, 3).join('.') : '');
+  const collect = (el) => {
+    const out = [];
+    const styles = [...document.querySelectorAll('style')];
+    for (const sheet of document.styleSheets) {
+      let rules;
+      try { rules = sheet.cssRules; } catch { continue; } // 다른 출처(CDN) 시트는 읽을 수 없다
+      const sheetPath = sheet.href ? new URL(sheet.href).pathname : undefined;
+      const styleIndex = sheet.href ? undefined : styles.indexOf(sheet.ownerNode);
+      const styleText = sheet.href ? undefined : (sheet.ownerNode.textContent || '').trim().slice(0, 160);
+      const walk = (list, path) => {
+        for (let i = 0; i < list.length; i++) {
+          const r = list[i];
+          // 스타일 규칙도 CSS 중첩 때문에 cssRules 를 갖는다. selectorText 유무로 먼저 가른다
+          if (!r.selectorText) {
+            if (r.cssRules && r.type !== CSSRule.KEYFRAMES_RULE) { walk(r.cssRules, [...path, i]); }
+            continue;
+          }
+          for (const part of r.selectorText.split(',')) {
+            let hit = false;
+            try { hit = el.matches(part.trim()); } catch {}
+            if (hit) { out.push({ sheet: sheetPath, styleIndex, styleText, path: [...path, i], selector: r.selectorText, spec: specificity(part), order: out.length }); break; }
+          }
+        }
+      };
+      walk(rules, []);
+    }
+    out.sort((a, b) => b.spec - a.spec || b.order - a.order);
+    return out.slice(0, 20).map(({ spec, order, ...rest }) => rest);
+  };
+  const flash = (el) => {
+    const prev = el.style.outline;
+    el.style.outline = '2px solid #3DDC84';
+    setTimeout(() => { el.style.outline = prev; }, 600);
+  };
+  document.addEventListener('click', (e) => {
+    if (!e.altKey || !(e.target instanceof Element)) { return; }
+    e.preventDefault();
+    e.stopPropagation();
+    const el = e.target;
+    flash(el);
+    if (!ws || ws.readyState !== 1) { return; }
+    ws.send(JSON.stringify({ type: 'inspect', page: location.pathname, element: describe(el), rules: collect(el) }));
+  }, true);
+  console.info('[Go Live] ' + MSG.hint);
 })();
 `;
+}
 
 /**
  * staticRoot 설정을 워크스페이스 기준으로 해석한다. 워크스페이스 밖이면 undefined.
@@ -87,9 +219,11 @@ export function isInside(base: string, target: string): boolean {
   return target === base || target.startsWith(base + path.sep);
 }
 
-export class StaticServer {
+export class StaticServer extends EventEmitter {
   private server: http.Server | undefined;
   private root = '';
+  private options: StaticServerOptions = {};
+  private client = '';
   /** 심볼릭 링크를 푼 실제 루트. 링크로 프로젝트 밖을 가리키는 것을 막는 기준 */
   private rootReal = '';
   private readonly sockets = new Set<net.Socket>();
@@ -107,7 +241,9 @@ export class StaticServer {
    * @param workspace 워크스페이스 루트 (절대 경로)
    * @param subRoot   서빙할 하위 폴더 (상대 경로, 빈 문자열이면 루트)
    */
-  async start(workspace: string, subRoot: string, port: number): Promise<string> {
+  async start(workspace: string, subRoot: string, port: number, options: StaticServerOptions = {}): Promise<string> {
+    this.options = options;
+    this.client = clientScript(options);
     const root = resolveStaticRoot(workspace, subRoot);
     if (!root) {
       throw new Error(t('msg.staticRootOutside', subRoot));
@@ -187,25 +323,21 @@ export class StaticServer {
     }
     if (pathname === CLIENT_PATH) {
       res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
-      return void res.end(CLIENT_SCRIPT);
+      return void res.end(this.client);
     }
-
-    // 경로 탈출 방지 1: 문자열 기준 (../ 등)
-    const file = path.normalize(path.join(this.root, pathname));
-    if (!isInside(this.root, file)) {
-      return this.notFound(res, pathname);
-    }
-
-    let stat: fs.Stats;
-    try {
-      stat = fs.statSync(file);
-      // 경로 탈출 방지 2: 심볼릭 링크를 푼 실제 경로도 프로젝트 안이어야 한다
-      if (!isInside(this.rootReal, fs.realpathSync(file))) {
+    if (pathname === DEVTOOLS_JSON_PATH) {
+      if (!this.options.devtoolsUuid) {
         return this.notFound(res, pathname);
       }
-    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      return void res.end(JSON.stringify({ workspace: { root: this.rootReal, uuid: this.options.devtoolsUuid } }));
+    }
+
+    const resolved = this.resolveFile(pathname);
+    if (!resolved) {
       return this.notFound(res, pathname);
     }
+    const { file, stat } = resolved;
 
     if (stat.isDirectory()) {
       if (!pathname.endsWith('/')) {
@@ -223,6 +355,38 @@ export class StaticServer {
       return this.sendHtml(res, file);
     }
     this.sendFile(req, res, file, stat);
+  }
+
+  /** URL 경로를 프로젝트 안의 파일로 해석한다. 루트 밖(../, 심볼릭 링크)이면 undefined */
+  private resolveFile(pathname: string): { file: string; stat: fs.Stats } | undefined {
+    // 경로 탈출 방지 1: 문자열 기준 (../ 등)
+    const file = path.normalize(path.join(this.root, pathname));
+    if (!isInside(this.root, file)) {
+      return undefined;
+    }
+    try {
+      const stat = fs.statSync(file);
+      // 경로 탈출 방지 2: 심볼릭 링크를 푼 실제 경로도 프로젝트 안이어야 한다
+      if (!isInside(this.rootReal, fs.realpathSync(file))) {
+        return undefined;
+      }
+      return { file, stat };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** 페이지 URL 경로 → HTML 파일 (폴더면 index.html) */
+  private resolvePage(pathname: string): string | undefined {
+    const r = this.resolveFile(pathname);
+    if (!r) {
+      return undefined;
+    }
+    if (r.stat.isDirectory()) {
+      const index = path.join(r.file, 'index.html');
+      return fs.existsSync(index) ? index : undefined;
+    }
+    return r.file;
   }
 
   private sendHtml(res: http.ServerResponse, file: string): void {
@@ -307,18 +471,23 @@ export class StaticServer {
         `Sec-WebSocket-Accept: ${accept}\r\n\r\n`
     );
     this.clients.add(socket);
+    let pending: Buffer = Buffer.alloc(0);
     socket.on('data', (buf: Buffer) => {
-      const opcode = buf[0] & 0x0f;
-      if (opcode === 0x8) {
-        // close → 응답 후 종료
+      const decoded = decodeFrames(Buffer.concat([pending, buf]));
+      pending = Buffer.from(decoded.rest);
+      if (decoded.close) {
         try {
           socket.end(Buffer.from([0x88, 0x00]));
         } catch {
           /* ignore */
         }
-      } else if (opcode === 0x9) {
-        // ping → pong (클라이언트 프레임은 마스킹돼 있지만 페이로드는 필요 없다)
+        return;
+      }
+      if (decoded.ping) {
         socket.write(Buffer.from([0x8a, 0x00]));
+      }
+      for (const text of decoded.messages) {
+        this.handleClientMessage(socket, text);
       }
     });
     const drop = () => this.clients.delete(socket);
@@ -326,6 +495,77 @@ export class StaticServer {
     socket.on('error', drop);
     socket.on('end', drop);
     this.sendText(socket, 'connected');
+  }
+
+  private handleClientMessage(socket: net.Socket, text: string): void {
+    let msg: { type?: string } & Partial<InspectRequest>;
+    try {
+      msg = JSON.parse(text);
+    } catch {
+      return;
+    }
+    if (msg.type !== 'inspect' || !this.options.inspect) {
+      return;
+    }
+    const candidates = this.locateRules(msg.page ?? '/', Array.isArray(msg.rules) ? msg.rules : []);
+    const first = candidates[0];
+    this.sendText(
+      socket,
+      JSON.stringify(first ? { type: 'inspect-result', ok: true, file: path.basename(first.file), line: first.line } : { type: 'inspect-result', ok: false })
+    );
+    if (first) {
+      this.emit('inspect', { element: String(msg.element ?? ''), candidates } satisfies InspectEvent);
+    }
+  }
+
+  /** 브라우저가 보낸 규칙 목록을 파일과 줄 번호로 바꾼다. 못 찾는 규칙은 건너뛴다 */
+  private locateRules(page: string, rules: InspectRule[]): InspectCandidate[] {
+    const out: InspectCandidate[] = [];
+    const cssCache = new Map<string, ReturnType<typeof parseCssBlocks>>();
+    let html: { file: string; text: string } | undefined | null = null;
+    for (const rule of rules) {
+      if (!Array.isArray(rule.path) || rule.path.some((n) => !Number.isInteger(n) || n < 0)) {
+        continue;
+      }
+      if (typeof rule.sheet === 'string') {
+        let pathname: string;
+        try {
+          pathname = decodeURIComponent(rule.sheet);
+        } catch {
+          continue;
+        }
+        const r = this.resolveFile(pathname);
+        if (!r || !r.stat.isFile()) {
+          continue;
+        }
+        let blocks = cssCache.get(r.file);
+        if (!blocks) {
+          try {
+            blocks = parseCssBlocks(fs.readFileSync(r.file, 'utf8'));
+          } catch {
+            continue;
+          }
+          cssCache.set(r.file, blocks);
+        }
+        const block = findBlockByPath(blocks, rule.path);
+        if (block) {
+          out.push({ file: r.file, line: block.line, selector: String(rule.selector ?? block.prelude) });
+        }
+      } else if (typeof rule.styleIndex === 'number') {
+        if (html === null) {
+          const file = this.resolvePage(page);
+          html = file ? { file, text: fs.readFileSync(file, 'utf8') } : undefined;
+        }
+        if (!html) {
+          continue;
+        }
+        const line = locateInlineRule(html.text, rule.styleIndex, rule.path, typeof rule.styleText === 'string' ? rule.styleText.slice(0, 160) : undefined);
+        if (line !== undefined) {
+          out.push({ file: html.file, line, selector: String(rule.selector ?? '') });
+        }
+      }
+    }
+    return out;
   }
 
   private sendText(socket: net.Socket, text: string): void {

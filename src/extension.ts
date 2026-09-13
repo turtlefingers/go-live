@@ -8,7 +8,8 @@ import { StatusBar } from './statusBar';
 import { getConfig, BrowserMode } from './config';
 import { hasPackageJson, resolveNodeEnv, findNearestProjectDir } from './detect';
 import * as path from 'path';
-import { StaticServer } from './runner/static';
+import * as crypto from 'crypto';
+import { StaticServer, InspectEvent } from './runner/static';
 import { NpmSession } from './runner/npm';
 import { freePort } from './runner/commands';
 import { ProcessTerminal } from './runner/pty';
@@ -40,6 +41,7 @@ class Controller implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor(private readonly context: vscode.ExtensionContext) {
+    this.staticServer.on('inspect', (e: InspectEvent) => void this.onInspect(e));
     this.disposables.push(
       vscode.window.onDidCloseTerminal((term) => {
         if (term === this.terminal) {
@@ -187,7 +189,10 @@ class Controller implements vscode.Disposable {
 
   private async startStatic(root: string, config: ReturnType<typeof getConfig>, opts: StartOptions): Promise<void> {
     this.status.set('starting');
-    const url = await this.staticServer.start(root, config.staticRoot.trim(), config.staticPort);
+    const url = await this.staticServer.start(root, config.staticRoot.trim(), config.staticPort, {
+      inspect: config.inspect,
+      devtoolsUuid: config.devtoolsWorkspace ? this.devtoolsUuidFor(root) : undefined,
+    });
     if (this.stopRequested) {
       return;
     }
@@ -333,6 +338,49 @@ class Controller implements vscode.Disposable {
         await this.reinstall();
         return;
     }
+  }
+
+  /** Chrome 이 "이미 승인한 폴더"로 기억하도록 프로젝트마다 고정된 uuid 를 쓴다 */
+  private devtoolsUuidFor(root: string): string {
+    const key = `goLive.devtoolsUuid:${root}`;
+    let uuid = this.context.workspaceState.get<string>(key);
+    if (!uuid) {
+      uuid = crypto.randomUUID();
+      void this.context.workspaceState.update(key, uuid);
+    }
+    return uuid;
+  }
+
+  /** 브라우저에서 Alt+클릭한 요소의 CSS 규칙을 에디터에서 연다 */
+  private async onInspect(e: InspectEvent): Promise<void> {
+    const [first, ...others] = e.candidates;
+    if (!first) {
+      return;
+    }
+    await this.revealRule(first.file, first.line);
+    if (others.length === 0) {
+      return;
+    }
+    const more = t('inspect.more', others.length);
+    const choice = await vscode.window.showInformationMessage(`${e.element} → ${path.basename(first.file)}:${first.line}`, more);
+    if (choice !== more) {
+      return;
+    }
+    const picked = await vscode.window.showQuickPick(
+      e.candidates.map((c) => ({ label: c.selector, description: `${path.basename(c.file)}:${c.line}`, c })),
+      { title: t('inspect.pickTitle', e.element) }
+    );
+    if (picked) {
+      await this.revealRule(picked.c.file, picked.c.line);
+    }
+  }
+
+  private async revealRule(file: string, line: number): Promise<void> {
+    const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+    const pos = new vscode.Position(Math.max(0, line - 1), 0);
+    const editor = await vscode.window.showTextDocument(doc, { preserveFocus: false, preview: true });
+    editor.selection = new vscode.Selection(pos, pos);
+    editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
   }
 
   private async openGuide(): Promise<void> {

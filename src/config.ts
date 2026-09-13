@@ -11,6 +11,8 @@ export interface GoLiveConfig {
   browser: BrowserMode;
   showTerminalOnStart: boolean;
   staticRoot: string;
+  inspect: boolean;
+  devtoolsWorkspace: boolean;
 }
 
 const BROWSER_MODES: ReadonlySet<string> = new Set(['external', 'simple', 'none']);
@@ -32,5 +34,7 @@ export function getConfig(scope?: vscode.ConfigurationScope): GoLiveConfig {
     browser: typeof browser === 'string' && BROWSER_MODES.has(browser) ? (browser as BrowserMode) : 'external',
     showTerminalOnStart: c.get<unknown>('showTerminalOnStart', false) === true,
     staticRoot: str('staticRoot'),
+    inspect: c.get<unknown>('inspect', true) !== false,
+    devtoolsWorkspace: c.get<unknown>('devtoolsWorkspace', true) !== false,
   };
 }

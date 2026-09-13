@@ -4,7 +4,7 @@ import { NpmSession } from '../../src/runner/npm';
 import { ProcessTerminal } from '../../src/runner/pty';
 import { resolveNodeEnv } from '../../src/detect';
 import { GoLiveConfig } from '../../src/config';
-const config: GoLiveConfig = { staticPort: 5500, npmScript: '', packageManager: 'auto', alwaysInstall: false, browser: 'none', showTerminalOnStart: false, staticRoot: '' };
+const config: GoLiveConfig = { staticPort: 5500, npmScript: '', packageManager: 'auto', alwaysInstall: false, browser: 'none', showTerminalOnStart: false, staticRoot: '', inspect: true, devtoolsWorkspace: true };
 class M { m = new Map<string, unknown>(); keys() { return [...this.m.keys()]; } get<T>(k: string, d?: T) { return (this.m.has(k) ? this.m.get(k) : d) as T; } async update(k: string, v: unknown) { this.m.set(k, v); } }
 (async () => {
   const root = path.join(__dirname, '../test/fixtures', process.argv[2]);

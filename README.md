@@ -53,6 +53,15 @@ Vite, webpack, Parcel, Next.js, Astro, SvelteKit, Express, `concurrently`로 묶
 
 명령 팔레트: `Start Go Live`, `Stop Go Live`, `Open with Go Live`, `Go Live: Reinstall packages`(node_modules 삭제 후 재설치), `Go Live: Show terminal`.
 
+## 브라우저에서 코드로 (정적 모드)
+
+디자인을 고칠 때 "이 부분이 코드 어디지?"를 브라우저가 답해 줍니다.
+
+- **Alt(Option)+클릭 → 에디터 점프**: 브라우저에서 요소를 Alt+클릭하면 그 요소에 적용된 CSS 규칙을 찾아 에디터가 해당 파일의 그 줄을 엽니다. 외부 `.css` 파일이든 HTML 안의 `<style>`이든 됩니다. 규칙이 여러 개면 목록에서 고를 수 있습니다.
+- **DevTools 에서 저장**: Chrome 계열 브라우저(Chromium 135 이상)에서는 DevTools 워크스페이스가 자동으로 연결됩니다. 개발자 도구의 Styles 패널에서 값을 끌어 맞춘 뒤 Cmd/Ctrl+S 를 누르면 원본 CSS 파일에 저장되고, 저장된 내용은 다시 라이브로 반영됩니다. 처음 한 번 "폴더 접근 허용" 확인이 뜹니다.
+
+둘 다 정적 모드에서만 동작합니다. npm 프로젝트는 Vite 같은 dev 서버가 페이지를 서빙하므로 그쪽 플러그인(예: `vite-plugin-devtools-json`)을 쓰면 됩니다. `goLive.inspect`, `goLive.devtoolsWorkspace` 설정으로 끌 수 있습니다.
+
 ## 에러 안내
 
 이 확장의 핵심입니다. 로그는 터미널에 그대로 남기되, 화면에는 원인과 다음 행동을 한국어로 보여줍니다.
@@ -82,6 +91,8 @@ macOS GUI 앱이 셸 PATH를 물려받지 못해 Node를 못 찾는 경우(nvm, 
 | `goLive.browser` | external | external(기본 브라우저) / simple(에디터 안) / none |
 | `goLive.showTerminalOnStart` | false | 시작 시 터미널 표시 |
 | `goLive.staticRoot` | (루트) | 정적 모드에서 서빙할 하위 폴더 |
+| `goLive.inspect` | true | 정적 모드에서 Alt+클릭한 요소의 CSS 규칙을 에디터에서 열기 |
+| `goLive.devtoolsWorkspace` | true | 정적 모드에서 Chrome DevTools 워크스페이스 자동 연결 |
 
 ## 개발
 
