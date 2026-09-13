@@ -49,10 +49,9 @@ Vite, webpack, Parcel, Next.js, Astro, SvelteKit, Express, `concurrently`로 묶
 
 메뉴 이름은 **Open with Go Live**, 실행 중에는 **Stop Go Live**입니다. 다른 프로젝트가 실행 중이면 먼저 중지하고 새로 시작합니다. 탐색기, 편집기 본문, 편집기 탭 어디에서 우클릭해도 같습니다.
 
-
 단축키는 Live Server와 같습니다. `Alt+L Alt+O` 시작, `Alt+L Alt+C` 중지.
 
-명령 팔레트: `Go Live: 시작`, `Go Live: 중지`, `Go Live: 패키지 다시 설치`(node_modules 삭제 후 재설치), `Go Live: 터미널 보기`.
+명령 팔레트: `Start Go Live`, `Stop Go Live`, `Open with Go Live`, `Go Live: Reinstall packages`(node_modules 삭제 후 재설치), `Go Live: Show terminal`.
 
 ## 에러 안내
 
