@@ -43,8 +43,6 @@ class Controller implements vscode.Disposable {
   private stopRequested = false;
   /** 지금 실행 중(또는 시작 중)인 프로젝트 폴더 */
   private activeRoot: string | undefined;
-  /** 다른 기기에서 접속 가능하게 띄웠는지 */
-  private lanMode = false;
   private phonePanel: vscode.WebviewPanel | undefined;
   private readonly disposables: vscode.Disposable[] = [];
 
@@ -81,7 +79,6 @@ class Controller implements vscode.Disposable {
     const root = opts.root && (opts.root === wsRoot || opts.root.startsWith(wsRoot + path.sep)) ? opts.root : wsRoot;
     const config = getConfig(folder);
     this.activeRoot = root;
-    this.lanMode = !!opts.lan || config.staticHost === '0.0.0.0';
 
     this.busy = true;
     this.stopRequested = false;
@@ -154,27 +151,26 @@ class Controller implements vscode.Disposable {
       void vscode.window.showWarningMessage(t('phone.noWifi'));
       return;
     }
-    if (!this.status.isActive || !this.lanMode) {
+    // 이미 다른 기기에서 접속 가능하면(예: 0.0.0.0 에 듣는 Express) 재시작하지 않는다.
+    // 재시작은 열려 있는 WebSocket 등 실시간 연결을 끊으므로 꼭 필요할 때만 한다
+    let port = this.status.detail.url ? portOf(this.status.detail.url) : undefined;
+    const reachable = this.status.state === 'running' && port !== undefined && (await isReachable(ip, port));
+    if (!reachable) {
       if (this.status.isActive) {
         void vscode.window.showInformationMessage(t('phone.restarting'));
         await this.stop();
       }
-      // 브라우저는 이미 열려 있으니 다시 열지 않는다. 페이지는 서버가 돌아오면 스스로 다시 연결한다
       await this.start({ lan: true, root: this.activeRoot, noBrowser: true });
       if (this.status.state !== 'running') {
         return;
       }
-    }
-    const url = this.status.detail.url;
-    const port = url ? portOf(url) : undefined;
-    if (!port) {
-      return;
+      port = this.status.detail.url ? portOf(this.status.detail.url) : undefined;
+      if (port === undefined || !(await isReachable(ip, port))) {
+        void vscode.window.showErrorMessage(t('phone.notReachable'));
+        return;
+      }
     }
     const phoneUrl = `http://${ip}:${port}/`;
-    if (!(await isReachable(ip, port))) {
-      void vscode.window.showErrorMessage(t('phone.notReachable'));
-      return;
-    }
     await vscode.env.clipboard.writeText(phoneUrl);
     this.showPhonePanel(phoneUrl);
     void vscode.window.setStatusBarMessage(t('phone.copied', phoneUrl), 5000);

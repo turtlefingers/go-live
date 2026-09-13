@@ -48,7 +48,7 @@
 <main class="max-w-2xl mx-auto p-4 grid grid-cols-1 md:grid-cols-[1fr_200px] gap-4">
   <section class="card bg-base-100 shadow-sm">
     <div class="card-body p-0">
-      <div class="px-4 pt-3 text-xs text-base-content/60">이 페이지를 <b>브라우저 탭 두 개</b>(또는 폰)로 열어보세요. 한쪽에서 보낸 메시지가 다른 쪽에 바로 나타나야 합니다.</div>
+      <div class="px-4 pt-3 text-xs text-base-content/60">이 페이지를 <b>브라우저 탭 두 개</b>로 열거나, 상태바의 📱 버튼으로 <b>폰에서도</b> 열어보세요. 한쪽에서 보낸 메시지가 다른 쪽에 바로 나타나야 합니다.</div>
       <div id="log" class="px-4 py-3 h-[52vh] overflow-y-auto space-y-1"></div>
       <div id="typing" class="px-4 h-6 text-xs text-base-content/60"></div>
       <form id="form" class="p-3 border-t border-base-300 flex gap-2">
@@ -78,7 +78,8 @@
 const $ = (id) => document.getElementById(id);
 let me = null;
 let typingTimer = null;
-const ws = new WebSocket(location.origin.replace(/^http/, 'ws'));
+let ws = null;
+let retries = 0;
 const time = (t) => new Date(t).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -95,33 +96,47 @@ const bubble = (m) => {
   scroll();
 };
 
-ws.onopen = () => { $('dot').className = 'status status-success mr-1'; $('status').lastChild.textContent = '연결됨'; };
-ws.onclose = () => { $('dot').className = 'status status-error mr-1'; $('status').lastChild.textContent = '끊김'; system('서버와 연결이 끊겼어요. Go Live 를 다시 눌러보세요.'); };
-ws.onmessage = (e) => {
-  const m = JSON.parse(e.data);
-  if (m.type === 'welcome') {
-    me = m.id; $('me-emoji').textContent = m.emoji; $('me-name').textContent = m.name; $('count').textContent = m.counter;
-    for (const h of m.history) bubble(h);
-  }
-  if (m.type === 'presence') { $('online').textContent = `접속 ${m.online}명`; system(m.who === me ? `${m.text} (나)` : m.text); }
-  if (m.type === 'chat') bubble(m);
-  if (m.type === 'counter') { $('count').textContent = m.counter; $('by').textContent = `${m.name} 님이 눌렀어요`; }
-  if (m.type === 'typing' && m.from !== me) {
-    $('typing').innerHTML = `<span class="loading loading-dots loading-xs"></span> ${esc(m.name)} 님이 입력 중`;
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => ($('typing').textContent = ''), 1200);
-  }
+// 서버가 재시작돼도(Go Live 재시작, 휴대폰으로 보기) 스스로 다시 붙는다
+const connect = () => {
+  ws = new WebSocket(location.origin.replace(/^http/, 'ws'));
+  ws.onopen = () => {
+    $('dot').className = 'status status-success mr-1'; $('status').lastChild.textContent = '연결됨';
+    if (retries > 0) { $('log').innerHTML = ''; system('다시 연결됐어요'); }
+    retries = 0;
+  };
+  ws.onclose = () => {
+    $('dot').className = 'status status-error mr-1'; $('status').lastChild.textContent = '재연결 중…';
+    if (retries === 0) { system('서버와 연결이 끊겼어요. 다시 연결을 시도합니다.'); }
+    setTimeout(connect, Math.min(500 * 2 ** retries, 5000));
+    retries += 1;
+  };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'welcome') {
+      me = m.id; $('me-emoji').textContent = m.emoji; $('me-name').textContent = m.name; $('count').textContent = m.counter;
+      for (const h of m.history) bubble(h);
+    }
+    if (m.type === 'presence') { $('online').textContent = `접속 ${m.online}명`; system(m.who === me ? `${m.text} (나)` : m.text); }
+    if (m.type === 'chat') bubble(m);
+    if (m.type === 'counter') { $('count').textContent = m.counter; $('by').textContent = `${m.name} 님이 눌렀어요`; }
+    if (m.type === 'typing' && m.from !== me) {
+      $('typing').innerHTML = `<span class="loading loading-dots loading-xs"></span> ${esc(m.name)} 님이 입력 중`;
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => ($('typing').textContent = ''), 1200);
+    }
+  };
 };
+connect();
 
 $('form').onsubmit = (ev) => {
   ev.preventDefault();
   const text = $('input').value.trim();
   if (!text) return;
-  ws.send(JSON.stringify({ type: 'chat', text }));
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'chat', text }));
   $('input').value = '';
 };
-$('input').oninput = () => ws.send(JSON.stringify({ type: 'typing' }));
-$('plus').onclick = () => ws.send(JSON.stringify({ type: 'count' }));
+$('input').oninput = () => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'typing' })); };
+$('plus').onclick = () => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'count' })); };
 </script>
 
 </body>
