@@ -53,6 +53,12 @@ Vite, webpack, Parcel, Next.js, Astro, SvelteKit, Express, `concurrently`로 묶
 
 명령 팔레트: `Start Go Live`, `Stop Go Live`, `Open with Go Live`, `Go Live: Reinstall packages`(node_modules 삭제 후 재설치), `Go Live: Show terminal`.
 
+## 휴대폰으로 보기
+
+실행 중일 때 상태바의 **Stop** 옆에 휴대폰 아이콘이 나타납니다. 누르면 같은 와이파이의 기기에서 열 수 있는 주소를 QR 코드로 보여주고, 주소를 클립보드에 복사합니다. 카메라로 QR을 찍으면 바로 열립니다.
+
+서버가 이 컴퓨터에서만 듣고 있었다면 다른 기기도 받도록 자동으로 다시 시작합니다. npm 프로젝트는 dev 서버에 `--host 0.0.0.0`(Next.js는 `-H`)을 붙여 다시 실행하고, 그래도 접속이 안 되는 도구면 스크립트에 `--host`를 추가하라고 안내합니다.
+
 ## 브라우저에서 코드로 (정적 모드)
 
 디자인을 고칠 때 "이 부분이 코드 어디지?"를 브라우저가 답해 줍니다.
@@ -120,7 +126,7 @@ npm run smoke:crash  # 확장 호스트 강제 종료 시 dev 서버 정리
 npm run vsix         # .vsix 패키징
 ```
 
-런타임 의존성은 `tree-kill` 하나이고 번들에 포함됩니다. 정적 서버(서빙·감시·리로드)는 Node 내장 API로 직접 구현했습니다. 테스트 fixture와 기대 동작은 `test/fixtures/README.md`, 설계 명세는 `docs/GO_LIVE_SPEC.md`에 있습니다.
+런타임 의존성은 `tree-kill`과 `qrcode-generator` 둘이고 모두 MIT, 번들에 포함됩니다. 정적 서버(서빙·감시·리로드)는 Node 내장 API로 직접 구현했습니다. 테스트 fixture와 기대 동작은 `test/fixtures/README.md`, 설계 명세는 `docs/GO_LIVE_SPEC.md`에 있습니다.
 
 ## 만든 배경
 
@@ -135,8 +141,9 @@ npm run vsix         # .vsix 패키징
 - **[Live Server](https://github.com/ritwickdey/vscode-live-server)** by Ritwick Dey (MIT) — 상태바 "Go Live" 버튼 하나로 정적 페이지를 띄우는 경험, `Alt+L Alt+O` 키바인딩, 저장 시 리로드라는 사용자 경험이 이 확장에서 왔습니다. Go Live 는 그 경험을 npm/Vite 프로젝트까지 넓혀보려는 시도입니다.
 - **[live-server](https://github.com/tapio/live-server)** by Tapio Vierros (MIT) — 정적 서빙 + 파일 감시 + WebSocket 리로드, CSS 만 바뀌면 페이지를 새로고침하지 않고 스타일만 교체하는 동작 방식을 참고해 Node 내장 API 로 새로 구현했습니다.
 - **[Five Server](https://github.com/yandeu/five-server)** by Yannick Deubel — 에디터와 브라우저를 연결하는 여러 아이디어에서 영감을 받았습니다.
-- **[tree-kill](https://github.com/pkrumins/node-tree-kill)** by Peteris Krumins (MIT) — Windows 에서도 dev 서버의 자식 프로세스까지 확실히 종료하는 데 씁니다. 이 확장에 포함된 유일한 외부 런타임 코드입니다.
+- **[tree-kill](https://github.com/pkrumins/node-tree-kill)** by Peteris Krumins (MIT) — Windows 에서도 dev 서버의 자식 프로세스까지 확실히 종료하는 데 씁니다. 이 확장에 포함된 외부 런타임 코드 둘 중 하나입니다.
 - **[Codicons](https://github.com/microsoft/vscode-codicons)** by Microsoft (CC BY 4.0) — 확장 아이콘의 전파탑 모양은 VS Code 상태바에 쓰이는 codicon `radio-tower` 글리프를 색만 바꿔 사용했습니다. 상태바 버튼과 같은 모양이라 바로 알아볼 수 있습니다.
+- **[qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator)** by Kazuhiko Arase (MIT) — "휴대폰으로 보기"의 QR 코드를 만듭니다. 번들에 포함된 두 번째 외부 런타임 코드입니다.
 - **[Vite](https://vitejs.dev)** — 학생들이 처음 만나는 npm 프로젝트의 대부분이 Vite 입니다. Vite 의 `Local:` 출력 형식을 기준으로 서버 주소를 감지합니다.
 
 이슈와 제안은 언제나 환영합니다.

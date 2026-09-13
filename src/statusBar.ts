@@ -14,6 +14,8 @@ export interface StateDetail {
 
 export class StatusBar implements vscode.Disposable {
   private readonly item: vscode.StatusBarItem;
+  /** 실행 중일 때만 보이는 휴대폰 버튼 */
+  private readonly phone: vscode.StatusBarItem;
   private _state: State = 'idle';
   private _detail: StateDetail = {};
 
@@ -21,6 +23,11 @@ export class StatusBar implements vscode.Disposable {
     this.item = vscode.window.createStatusBarItem('goLive.status', vscode.StatusBarAlignment.Right, 100);
     this.item.name = 'Go Live';
     this.item.command = 'goLive.toggle';
+    this.phone = vscode.window.createStatusBarItem('goLive.phone', vscode.StatusBarAlignment.Right, 99);
+    this.phone.name = 'Go Live: Phone';
+    this.phone.command = 'goLive.openOnPhone';
+    this.phone.text = '$(device-mobile)';
+    this.phone.tooltip = t('phone.tooltip');
     this.render();
     this.item.show();
   }
@@ -49,6 +56,11 @@ export class StatusBar implements vscode.Disposable {
   private render(): void {
     const item = this.item;
     item.backgroundColor = undefined;
+    if (this._state === 'running') {
+      this.phone.show();
+    } else {
+      this.phone.hide();
+    }
     switch (this._state) {
       case 'idle':
         item.text = t('statusBar.idle');
@@ -83,5 +95,6 @@ export class StatusBar implements vscode.Disposable {
 
   dispose(): void {
     this.item.dispose();
+    this.phone.dispose();
   }
 }

@@ -17,17 +17,17 @@ export function installArgs(pm: PackageManager, legacyPeer: boolean): string[] {
   }
 }
 
-export function devArgs(pm: PackageManager, script: string, port?: number): string[] {
-  const portArgs = port ? ['--port', String(port)] : [];
+export function devArgs(pm: PackageManager, script: string, port?: number, extra: string[] = []): string[] {
+  const passthrough = [...(port ? ['--port', String(port)] : []), ...extra];
   const safeScript = quoteIfNeeded(script);
   switch (pm) {
     case 'npm':
       // npm 은 스크립트로 인자를 넘길 때 -- 가 필요하다
-      return ['run', safeScript, ...(portArgs.length ? ['--', ...portArgs] : [])];
+      return ['run', safeScript, ...(passthrough.length ? ['--', ...passthrough] : [])];
     case 'pnpm':
     case 'yarn':
     case 'bun':
-      return ['run', safeScript, ...portArgs];
+      return ['run', safeScript, ...passthrough];
   }
 }
 

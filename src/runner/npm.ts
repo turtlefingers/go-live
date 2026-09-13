@@ -9,6 +9,7 @@ import * as path from 'path';
 import { ProcessTerminal, RunResult } from './pty';
 import { UrlDetector, DetectedUrl } from './url';
 import { devArgs, installArgs } from './commands';
+import { lanArgs } from '../lan';
 import { classify, Classification, AutoRecovery, Stage } from '../errors';
 import {
   commandExists,
@@ -37,6 +38,8 @@ export interface NpmSessionOptions {
   cleanInstall?: boolean;
   /** 포트 충돌 재시도 시 지정 */
   port?: number;
+  /** 휴대폰 등 다른 기기에서 접속할 수 있게 dev 서버를 0.0.0.0 에 듣게 한다 */
+  lan?: boolean;
 }
 
 export type SessionOutcome =
@@ -69,6 +72,7 @@ export class NpmSession {
   private legacyPeer = false;
   private clean = false;
   private needsInstall = false;
+  private scriptCommand = '';
 
   constructor(private readonly o: NpmSessionOptions) {}
 
@@ -89,6 +93,7 @@ export class NpmSession {
       return this.fail('check', { messageKey, messageArgs: [arg], actions: [openSettings] });
     }
     const script = pick.script;
+    this.scriptCommand = pkg.scripts?.[script] ?? '';
 
     // 2. 패키지 매니저
     this.pm = detectPackageManager(root, pkg, config.packageManager);
@@ -211,7 +216,10 @@ export class NpmSession {
       // CRA 등 dev 서버가 스스로 브라우저를 여는 것을 막는다. 브라우저는 확장이 연다
       BROWSER: 'none',
       ...(port ? { PORT: String(port) } : {}),
+      // CRA 등은 HOST 환경변수로 바인딩 주소를 정한다
+      ...(this.o.lan ? { HOST: '0.0.0.0' } : {}),
     };
+    const extra = this.o.lan ? lanArgs(this.scriptCommand) : [];
 
     return new Promise<DevOutcome>((resolve) => {
       const detector = new UrlDetector();
@@ -248,7 +256,7 @@ export class NpmSession {
       const timer = setTimeout(() => settle({ kind: 'timeout' }), URL_TIMEOUT_MS);
 
       pty
-        .run({ command: this.pm, args: devArgs(this.pm, script, port), cwd: root, env, watchdog: true })
+        .run({ command: this.pm, args: devArgs(this.pm, script, port, extra), cwd: root, env, watchdog: true })
         .then((result) => {
           if (settled) {
             // running 상태에서 종료됨 → 정상 stop 이 아니면 알린다

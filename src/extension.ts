@@ -17,6 +17,7 @@ import { portOf, urlForFile } from './runner/url';
 import { resolveStaticRoot } from './runner/static';
 import { classify, Classification, NODE_DOWNLOAD_URL, UserAction } from './errors';
 import { setLanguage, t } from './l10n';
+import { lanAddress, isReachable, qrSvg } from './lan';
 
 interface StartOptions {
   forceInstall?: boolean;
@@ -26,6 +27,8 @@ interface StartOptions {
   openFile?: string;
   /** 실행할 프로젝트 폴더. 없으면 워크스페이스 루트. 워크스페이스 안이어야 한다 */
   root?: string;
+  /** 휴대폰 등 다른 기기에서 접속할 수 있게 0.0.0.0 에 듣는다 */
+  lan?: boolean;
 }
 
 class Controller implements vscode.Disposable {
@@ -38,6 +41,9 @@ class Controller implements vscode.Disposable {
   private stopRequested = false;
   /** 지금 실행 중(또는 시작 중)인 프로젝트 폴더 */
   private activeRoot: string | undefined;
+  /** 다른 기기에서 접속 가능하게 띄웠는지 */
+  private lanMode = false;
+  private phonePanel: vscode.WebviewPanel | undefined;
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor(private readonly context: vscode.ExtensionContext) {
@@ -73,6 +79,7 @@ class Controller implements vscode.Disposable {
     const root = opts.root && (opts.root === wsRoot || opts.root.startsWith(wsRoot + path.sep)) ? opts.root : wsRoot;
     const config = getConfig(folder);
     this.activeRoot = root;
+    this.lanMode = !!opts.lan || config.staticHost === '0.0.0.0';
 
     this.busy = true;
     this.stopRequested = false;
@@ -137,6 +144,61 @@ class Controller implements vscode.Disposable {
   }
 
   /**
+   * 상태바 휴대폰 버튼. 다른 기기에서 접속 가능하게 (필요하면 다시) 띄우고, 주소와 QR 을 보여준다.
+   */
+  async openOnPhone(): Promise<void> {
+    const ip = lanAddress();
+    if (!ip) {
+      void vscode.window.showWarningMessage(t('phone.noWifi'));
+      return;
+    }
+    if (!this.status.isActive || !this.lanMode) {
+      if (this.status.isActive) {
+        void vscode.window.showInformationMessage(t('phone.restarting'));
+        await this.stop();
+      }
+      await this.start({ lan: true, root: this.activeRoot });
+      if (this.status.state !== 'running') {
+        return;
+      }
+    }
+    const url = this.status.detail.url;
+    const port = url ? portOf(url) : undefined;
+    if (!port) {
+      return;
+    }
+    const phoneUrl = `http://${ip}:${port}/`;
+    if (!(await isReachable(ip, port))) {
+      void vscode.window.showErrorMessage(t('phone.notReachable'));
+      return;
+    }
+    await vscode.env.clipboard.writeText(phoneUrl);
+    this.showPhonePanel(phoneUrl);
+    void vscode.window.setStatusBarMessage(t('phone.copied', phoneUrl), 5000);
+  }
+
+  private showPhonePanel(phoneUrl: string): void {
+    const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<style>
+  body { font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; margin: 0; gap: 18px; text-align: center; }
+  .qr { width: min(60vw, 320px); background: #fff; padding: 12px; border-radius: 16px; }
+  .qr svg { width: 100%; height: auto; display: block; }
+  .url { font-size: 1.4em; font-weight: 600; user-select: all; word-break: break-all; }
+  .hint { opacity: .7; }
+</style></head><body>
+<div class="qr">${qrSvg(phoneUrl)}</div>
+<div class="url">${phoneUrl}</div>
+<div class="hint">${t('phone.hint')}</div>
+</body></html>`;
+    if (!this.phonePanel) {
+      this.phonePanel = vscode.window.createWebviewPanel('goLive.phone', t('phone.title'), vscode.ViewColumn.Beside, {});
+      this.phonePanel.onDidDispose(() => (this.phonePanel = undefined));
+    }
+    this.phonePanel.webview.html = html;
+    this.phonePanel.reveal(vscode.ViewColumn.Beside);
+  }
+
+  /**
    * 우클릭 "Open with Go Live".
    * - package.json → 그 폴더를 npm 모드로 실행
    * - HTML → 가장 가까운 package.json 이 있으면 그 프로젝트를 npm 모드로, 없으면 정적 모드로 그 파일 주소를 연다
@@ -192,7 +254,7 @@ class Controller implements vscode.Disposable {
     const url = await this.staticServer.start(root, config.staticRoot.trim(), config.staticPort, {
       inspect: config.inspect,
       devtoolsUuid: config.devtoolsWorkspace ? this.devtoolsUuidFor(root) : undefined,
-      host: config.staticHost,
+      host: opts.lan ? '0.0.0.0' : config.staticHost,
       cors: config.cors,
     });
     if (this.stopRequested) {
@@ -241,6 +303,7 @@ class Controller implements vscode.Disposable {
       forceInstall: opts.forceInstall,
       cleanInstall: opts.cleanInstall,
       port: opts.port,
+      lan: opts.lan,
     });
     this.session = session;
 
@@ -439,7 +502,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('goLive.stop', () => c.stop()),
     vscode.commands.registerCommand('goLive.reinstall', () => c.reinstall()),
     vscode.commands.registerCommand('goLive.showTerminal', () => c.showTerminal()),
-    vscode.commands.registerCommand('goLive.openWith', (resource?: vscode.Uri) => c.openWith(resource))
+    vscode.commands.registerCommand('goLive.openWith', (resource?: vscode.Uri) => c.openWith(resource)),
+    vscode.commands.registerCommand('goLive.openOnPhone', () => c.openOnPhone())
   );
 }
 

@@ -32,13 +32,14 @@ F5 (Run Extension) → Extension Development Host 가 `test/fixtures/static-basi
 | `src/runner/commands.ts` | 패키지 매니저별 인자 구성, freePort |
 | `src/runner/cssLocate.ts` | CSS 텍스트를 CSSOM 순서로 파싱해 규칙의 줄 번호를 찾는다. 인라인 <style> 은 내용 앞부분으로 대조 (런타임 주입 대비) |
 | `src/runner/wsFrame.ts` | 클라이언트→서버 WebSocket 프레임 해석 (마스킹 텍스트/close/ping) |
+| `src/lan.ts` | 휴대폰으로 보기: LAN IPv4 선택, 접속 확인, QR(qrcode-generator), 도구별 --host 인자 |
 | `src/runner/url.ts` | localhost URL 정규식, ANSI 제거, UrlDetector ("Local:" 줄 우선) |
 | `src/errors.ts` | 에러 매핑 테이블 (`ERROR_RULES`) 과 `classify()` |
 | `src/l10n/ko.json` | 사용자 노출 문자열 전부 |
 
 ## 규칙
 
-- TypeScript strict. 런타임 의존성은 `tree-kill` 만(번들 포함). 추가 시 이유를 커밋 메시지에 남기고, **라이선스가 MIT/BSD/Apache 계열인지 반드시 확인**한다 (five-server 는 배포 금지 라이선스였다)
+- TypeScript strict. 런타임 의존성은 `tree-kill`, `qrcode-generator` (둘 다 MIT, 번들 포함). 추가 시 이유를 커밋 메시지에 남기고, **라이선스가 MIT/BSD/Apache 계열인지 반드시 확인**한다 (five-server 는 배포 금지 라이선스였다)
 - 사용자 노출 문자열은 전부 `src/l10n/ko.json`. 코드에 한국어 리터럴을 쓰지 않는다 (`t('key')` 사용)
 - 런타임 코드는 전부 esbuild 로 번들한다 (`dist/extension.js`, `dist/watchdog.js`). vsix 에 node_modules 는 들어가지 않는다
 - `errors.ts` 에 규칙을 추가하면 `test/unit/errors.test.ts` 와 `test/fixtures/` 에 재현 케이스를 함께 추가한다

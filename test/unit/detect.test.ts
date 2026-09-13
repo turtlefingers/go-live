@@ -5,6 +5,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { findNearestProjectDir, detectPackageManager, pickScript, readPackageJson, lockfileHash, withExtraPath, pathKey, normalizePackageManagerSetting, isSafeScriptName } from '../../src/detect';
 import { devArgs, installArgs, quoteIfNeeded } from '../../src/runner/commands';
+import { lanArgs, lanAddress, qrSvg } from '../../src/lan';
 
 function tmpProject(files: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'go-live-'));
@@ -104,4 +105,20 @@ test('findNearestProjectDir: 위로 올라가며 가장 가까운 package.json, 
   assert.equal(findNearestProjectDir(path.join(ws, 'plain'), ws), undefined);
   assert.equal(findNearestProjectDir(path.join(ws, 'a', 'node_modules', 'x'), ws), path.join(ws, 'a'));
   assert.equal(findNearestProjectDir(os.tmpdir(), ws), undefined);
+});
+
+test('휴대폰으로 보기: 도구별 host 인자, LAN 주소 선택, QR', () => {
+  assert.deepEqual(lanArgs('vite'), ['--host', '0.0.0.0']);
+  assert.deepEqual(lanArgs('next dev'), ['-H', '0.0.0.0']);
+  assert.deepEqual(devArgs('npm', 'dev', undefined, ['--host', '0.0.0.0']), ['run', 'dev', '--', '--host', '0.0.0.0']);
+  assert.deepEqual(devArgs('pnpm', 'dev', 3001, ['--host', '0.0.0.0']), ['run', 'dev', '--port', '3001', '--host', '0.0.0.0']);
+  const ifaces = {
+    lo0: [{ address: '127.0.0.1', family: 'IPv4', internal: true }],
+    utun3: [{ address: '10.8.0.2', family: 'IPv4', internal: false }],
+    en0: [{ address: '192.168.0.12', family: 'IPv4', internal: false }, { address: 'fe80::1', family: 'IPv6', internal: false }],
+  } as unknown as NodeJS.Dict<os.NetworkInterfaceInfo[]>;
+  assert.equal(lanAddress(ifaces), '192.168.0.12', 'VPN(utun) 보다 en0 를 고른다');
+  assert.equal(lanAddress({ lo0: ifaces.lo0 }), undefined);
+  const svg = qrSvg('http://192.168.0.12:5500/');
+  assert.ok(svg.startsWith('<svg') && svg.includes('</svg>'));
 });

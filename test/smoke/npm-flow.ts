@@ -8,6 +8,7 @@ import * as net from 'net';
 import { NpmSession, lockfileHashKey } from '../../src/runner/npm';
 import { ProcessTerminal } from '../../src/runner/pty';
 import { freePort } from '../../src/runner/commands';
+import { lanAddress, isReachable } from '../../src/lan';
 import { resolveNodeEnv } from '../../src/detect';
 import { GoLiveConfig } from '../../src/config';
 import { t } from '../../src/l10n';
@@ -131,6 +132,19 @@ async function holdPort(port: number): Promise<{ close: () => void }> {
     const { outcome } = await run('broken-deps', path.join(FIXTURES, 'broken-deps'));
     expect(outcome.kind === 'failed' && outcome.stage === 'install', 'failed at install');
     expect(outcome.kind === 'failed' && outcome.classification.rule?.id === 'network', `classified as network (got ${outcome.kind === 'failed' ? outcome.classification.rule?.id : '-'})`);
+  }
+
+  // 6b. 휴대폰으로 보기: lan 옵션이면 Vite 가 0.0.0.0 에 듣는다
+  {
+    const ip = lanAddress();
+    if (ip) {
+      const { outcome, session } = await run('vite-vanilla (lan: --host 0.0.0.0)', path.join(FIXTURES, 'vite-vanilla'), { lan: true });
+      if (outcome.kind === 'running' && outcome.url) {
+        const port = Number(new URL(outcome.url).port);
+        expect(await isReachable(ip, port), `LAN 주소 ${ip}:${port} 에서 접속 가능`);
+      } else { expect(false, 'lan 모드 running'); }
+      await session.stop();
+    } else { console.log('\n(LAN 주소 없음 → lan 테스트 건너뜀)'); }
   }
 
   // 7. node 미설치 시뮬레이션: PATH 비움 → shell "command not found" → node-missing

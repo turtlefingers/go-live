@@ -2,7 +2,7 @@
   "name": "go-live",
   "displayName": "Go Live - Live Server for npm & Vite",
   "description": "Live Server that also runs npm/Vite projects with one click — 정적 HTML이든 npm 프로젝트든 상태바 버튼 하나로 실행",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "publisher": "doodlefingers",
   "license": "MIT",
   "engines": {
@@ -58,6 +58,10 @@
       {
         "command": "goLive.openWith",
         "title": "Open with Go Live"
+      },
+      {
+        "command": "goLive.openOnPhone",
+        "title": "Open on Phone (Go Live)"
       }
     ],
     "keybindings": [
@@ -203,6 +207,7 @@
     "smoke:kill": "node esbuild.js --smoke && node dist-test/kill-check.js"
   },
   "dependencies": {
+    "qrcode-generator": "^1.4.4",
     "tree-kill": "^1.2.2"
   },
   "devDependencies": {
