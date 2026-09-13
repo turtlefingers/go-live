@@ -101,8 +101,8 @@ macOS GUI 앱이 셸 PATH를 물려받지 못해 Node를 못 찾는 경우(nvm, 
 정적 모드 서버는 개발용이지만 기본값을 보수적으로 잡았습니다.
 
 - 이 컴퓨터(127.0.0.1)에서만 접근됩니다. 휴대폰으로 확인하려면 `goLive.staticHost`를 `network`로 바꾸세요.
-- `.env`, `.git` 같은 숨김 파일과 폴더는 서빙하지 않습니다.
-- Host 헤더가 localhost가 아니면 거부합니다 (DNS 리바인딩 방지). network 모드에서는 사설 IP 대역을 허용합니다.
+- `.env`, `.env.*`, `.git/`, 인증서(`.pem`, `.key` 등), `.npmrc`는 서빙하지 않습니다. Vite의 `server.fs.deny` 기본값과 같습니다.
+- Host 헤더가 localhost 계열이나 IP 주소가 아니면 거부합니다 (DNS 리바인딩 방지). Vite의 `allowedHosts` 기본값과 같습니다.
 - CORS 헤더는 기본으로 붙지 않습니다.
 - 프로젝트 폴더 밖(`../`, 심볼릭 링크)은 서빙하지 않습니다.
 

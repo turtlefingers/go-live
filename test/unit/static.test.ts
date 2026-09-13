@@ -6,7 +6,7 @@ import * as path from 'path';
 import * as net from 'net';
 import * as http from 'http';
 import * as crypto from 'crypto';
-import { StaticServer, resolveStaticRoot, isInside, InspectEvent, isAllowedHost, hasHiddenSegment } from '../../src/runner/static';
+import { StaticServer, resolveStaticRoot, isInside, InspectEvent, isAllowedHost, isDeniedPath } from '../../src/runner/static';
 import { encodeMaskedText, decodeFrames } from '../../src/runner/wsFrame';
 
 function project(): { root: string; outside: string } {
@@ -193,8 +193,8 @@ test('개발 서버 보안 기본값: localhost 바인딩, CORS 없음, 숨김 �
     assert.equal((await fetch(url + '.git/config')).status, 404);
     // fetch 는 Host 헤더 덮어쓰기를 무시하므로 원시 요청으로 검사한다
     const rawStatus = (host: string) => new Promise<number>((res, rej) => http.get({ host: '127.0.0.1', port: Number(port), path: '/', headers: { Host: host } }, (r) => { r.resume(); res(r.statusCode ?? 0); }).on('error', rej));
-    assert.equal(await rawStatus('evil.com'), 403, 'Host 헤더가 localhost 가 아니면 403');
-    assert.equal(await rawStatus('192.168.0.9:' + port), 403, 'localhost 모드에서는 사설 IP Host 도 403');
+    assert.equal(await rawStatus('evil.com'), 403, '호스트 이름은 localhost 계열만 (Vite 와 같음)');
+    assert.equal(await rawStatus('192.168.0.9:' + port), 200, 'IP 주소는 허용 (Vite 와 같음)');
     assert.equal(await rawStatus('127.0.0.1:' + port), 200);
     assert.equal(await rawStatus('localhost:' + port), 200);
   } finally { await s.stop(); }
@@ -204,16 +204,19 @@ test('개발 서버 보안 기본값: localhost 바인딩, CORS 없음, 숨김 �
   try { assert.equal((await fetch(url2)).headers.get('access-control-allow-origin'), '*'); } finally { await s2.stop(); }
 });
 
-test('isAllowedHost / hasHiddenSegment', () => {
-  assert.equal(isAllowedHost('localhost:5500', false), true);
-  assert.equal(isAllowedHost('127.0.0.1:5500', false), true);
-  assert.equal(isAllowedHost('[::1]:5500', false), true);
-  assert.equal(isAllowedHost('evil.com', false), false);
-  assert.equal(isAllowedHost('192.168.0.5:5500', false), false, 'localhost 모드에서는 사설 IP 도 거부');
-  assert.equal(isAllowedHost('192.168.0.5:5500', true), true, 'network 모드에서는 사설 IP 허용');
-  assert.equal(isAllowedHost('evil.com', true), false);
-  assert.equal(hasHiddenSegment('/.env'), true);
-  assert.equal(hasHiddenSegment('/a/.git/config'), true);
-  assert.equal(hasHiddenSegment('/a/b.css'), false);
-  assert.equal(hasHiddenSegment('/.well-known/x'), true, 'devtools.json 은 그 전에 따로 처리된다');
+test('isAllowedHost / isDeniedPath (Vite 기본값과 동일)', () => {
+  assert.equal(isAllowedHost('localhost:5500'), true);
+  assert.equal(isAllowedHost('app.localhost:5500'), true);
+  assert.equal(isAllowedHost('127.0.0.1:5500'), true);
+  assert.equal(isAllowedHost('[::1]:5500'), true);
+  assert.equal(isAllowedHost('192.168.0.5:5500'), true, 'IP 주소는 모드와 무관하게 허용');
+  assert.equal(isAllowedHost('evil.com'), false);
+  assert.equal(isAllowedHost('my-mac.local:5500'), false, 'IP 가 아닌 호스트 이름은 거부 (Vite 도 allowedHosts 필요)');
+  assert.equal(isDeniedPath('/.env'), true);
+  assert.equal(isDeniedPath('/.env.local'), true);
+  assert.equal(isDeniedPath('/a/.git/config'), true);
+  assert.equal(isDeniedPath('/certs/server.pem'), true);
+  assert.equal(isDeniedPath('/.npmrc'), true);
+  assert.equal(isDeniedPath('/a/b.css'), false);
+  assert.equal(isDeniedPath('/.htaccess'), false, '목록에 없는 점 파일은 서빙 (Vite 와 같음)');
 });

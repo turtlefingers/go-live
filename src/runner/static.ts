@@ -86,38 +86,42 @@ export interface StaticServerOptions {
   devtoolsUuid?: string;
   /** Alt+클릭 요소 검사 → 에디터 점프 */
   inspect?: boolean;
-  /** 바인딩 주소. 기본 127.0.0.1 (이 컴퓨터만). '0.0.0.0' 이면 같은 네트워크의 기기(휴대폰)에서도 접근 */
+  /** 바인딩 주소. 기본 127.0.0.1 (이 컴퓨터만). '0.0.0.0' 이면 같은 네트워크의 기기(휴대폰)에서도 접근 (Vite 의 --host 와 같다) */
   host?: '127.0.0.1' | '0.0.0.0';
   /** Access-Control-Allow-Origin: * 를 붙일지. 기본 false */
   cors?: boolean;
 }
 
-/** Host 헤더가 이 서버를 가리키는지 확인한다 (DNS 리바인딩 방지). LAN 모드에서는 사설 대역도 허용 */
-export function isAllowedHost(hostHeader: string | undefined, lan: boolean): boolean {
+/**
+ * Host 헤더 검사 (DNS 리바인딩 방지). Vite 기본값과 같다:
+ * localhost, *.localhost, 그리고 모든 IP 주소는 허용하고 그 밖의 호스트 이름은 거부한다.
+ */
+export function isAllowedHost(hostHeader: string | undefined): boolean {
   if (!hostHeader) {
     return false;
   }
   const host = hostHeader.replace(/:\d+$/, '').replace(/^\[(.*)\]$/, '$1').toLowerCase();
-  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.localhost')) {
+  if (host === 'localhost' || host.endsWith('.localhost')) {
     return true;
   }
-  if (!lan) {
-    return false;
-  }
-  return (
-    /^10\.\d+\.\d+\.\d+$/.test(host) ||
-    /^192\.168\.\d+\.\d+$/.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host) ||
-    /^169\.254\.\d+\.\d+$/.test(host) ||
-    host.endsWith('.local') ||
-    /^f[cd][0-9a-f]{2}:/.test(host) ||
-    /^fe80:/.test(host)
-  );
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || /^[0-9a-f:]+$/.test(host); // IPv4 / IPv6 리터럴
 }
 
-/** 숨김 파일/폴더(.env, .git, .vscode …)는 서빙하지 않는다 */
-export function hasHiddenSegment(pathname: string): boolean {
-  return pathname.split('/').some((seg) => seg.length > 1 && seg.startsWith('.'));
+/** Vite 의 server.fs.deny 기본값과 같은 민감 파일 목록 */
+const DENIED_BASENAME = new Set(['.env', '.npmrc', '.yarnrc.yml']);
+const DENIED_EXT = new Set(['crt', 'pem', 'key', 'p12', 'pfx', 'cer', 'der']);
+
+export function isDeniedPath(pathname: string): boolean {
+  const segs = pathname.split('/').filter(Boolean);
+  if (segs.includes('.git')) {
+    return true;
+  }
+  const base = segs[segs.length - 1] ?? '';
+  if (DENIED_BASENAME.has(base) || base.startsWith('.env.')) {
+    return true;
+  }
+  const ext = base.includes('.') ? base.slice(base.lastIndexOf('.') + 1).toLowerCase() : '';
+  return DENIED_EXT.has(ext);
 }
 
 /** 브라우저에 주입되는 클라이언트: 리로드 + (옵션) Alt+클릭 검사 */
@@ -345,7 +349,7 @@ export class StaticServer extends EventEmitter {
   // ── HTTP ──────────────────────────────────────────────────────────────
 
   private handle(req: http.IncomingMessage, res: http.ServerResponse): void {
-    if (!isAllowedHost(req.headers.host, this.options.host === '0.0.0.0')) {
+    if (!isAllowedHost(req.headers.host)) {
       res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
       return void res.end('Forbidden');
     }
@@ -370,7 +374,7 @@ export class StaticServer extends EventEmitter {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       return void res.end(JSON.stringify({ workspace: { root: this.rootReal, uuid: this.options.devtoolsUuid } }));
     }
-    if (hasHiddenSegment(pathname)) {
+    if (isDeniedPath(pathname)) {
       return this.notFound(res, pathname);
     }
 
@@ -473,7 +477,7 @@ export class StaticServer extends EventEmitter {
   private sendListing(res: http.ServerResponse, dir: string, pathname: string): void {
     const entries = fs
       .readdirSync(dir, { withFileTypes: true })
-      .filter((e) => !IGNORED_DIRS.has(e.name) && !e.name.startsWith('.'))
+      .filter((e) => !IGNORED_DIRS.has(e.name) && !isDeniedPath('/' + e.name))
       .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name, 'ko'));
     const items = entries
       .map((e) => {
@@ -502,7 +506,7 @@ export class StaticServer extends EventEmitter {
   private handleUpgrade(req: http.IncomingMessage, socket: net.Socket): void {
     const key = req.headers['sec-websocket-key'];
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
-    if (pathname !== WS_PATH || typeof key !== 'string' || !isAllowedHost(req.headers.host, this.options.host === '0.0.0.0')) {
+    if (pathname !== WS_PATH || typeof key !== 'string' || !isAllowedHost(req.headers.host)) {
       socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
       return;
     }
