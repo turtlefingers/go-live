@@ -83,3 +83,41 @@ test('urlForFile: 루트 기준 상대 경로, index.html 은 폴더로, 루트 
   assert.equal(urlForFile(base, '/ws/proj', '/ws/other/x.html'), 'http://localhost:5500/');
   assert.equal(urlForFile('http://localhost:5173', '/ws/proj', '/ws/proj/about.html'), 'http://localhost:5173/about.html');
 });
+
+import { isBetterCandidate, urlPathDepth } from '../../src/runner/url';
+
+test('wrangler 4.153 출력: "Local Explorer API" 안내 줄은 우선 줄이 아니고, 루트 주소인 Ready 줄을 고른다', () => {
+  // 실제 출력 (AI 에이전트/비대화형 세션으로 감지되면 Explorer 안내가 Ready 보다 먼저 찍힌다)
+  const d = new UrlDetector();
+  const hits = d.push(
+    '⎔ Starting local server...\n' +
+      'Wrangler detected this dev session is running in an AI agent.\n' +
+      'The Local Explorer API is available at http://localhost:8787/cdn-cgi/local/explorer/api\n' +
+      'Useful routes:\n' +
+      '  GET http://localhost:8787/cdn-cgi/local/explorer/api/local/workers - local Workers and bindings\n' +
+      '  GET http://localhost:8787/cdn-cgi/local/explorer/api - OpenAPI schema\n' +
+      '[wrangler:info] Ready on http://localhost:8787\n'
+  );
+  assert.equal(hits.length, 4);
+  assert.equal(hits.some((h) => h.preferred), false);
+  const best = hits.reduce((a, b) => (isBetterCandidate(b, a) ? b : a));
+  assert.equal(best.url, 'http://localhost:8787/');
+});
+
+test('isPreferredUrlLine: 라벨 바로 뒤에 URL 이 와야 한다', () => {
+  assert.equal(isPreferredUrlLine('┃ Local    http://localhost:4321/'), true);
+  assert.equal(isPreferredUrlLine('  ➜  Local:   http://localhost:5173/'), true);
+  assert.equal(isPreferredUrlLine('The Local Explorer API is available at http://localhost:8787/cdn-cgi/local/explorer/api'), false);
+  assert.equal(isPreferredUrlLine('local dev server started, see http://localhost:3000'), false);
+});
+
+test('urlPathDepth / isBetterCandidate: 얕은 경로가 이기고, 같으면 기존 후보 유지', () => {
+  assert.equal(urlPathDepth('http://localhost:8787/'), 0);
+  assert.equal(urlPathDepth('http://localhost:4000/app'), 1);
+  assert.equal(urlPathDepth('http://localhost:8787/cdn-cgi/local/explorer/api'), 4);
+  const root = { url: 'http://localhost:3000/', preferred: false };
+  const deep = { url: 'http://localhost:3000/a/b', preferred: false };
+  assert.equal(isBetterCandidate(root, deep), true);
+  assert.equal(isBetterCandidate(deep, root), false);
+  assert.equal(isBetterCandidate({ ...root }, root), false);
+});

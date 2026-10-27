@@ -46,9 +46,30 @@ export function portOf(url: string): number | undefined {
   }
 }
 
-/** dev 서버가 "이게 사용자가 열 주소"라고 표시하는 줄 (Vite/Next/Astro "Local:", webpack "Loopback:") */
+/**
+ * dev 서버가 "이게 사용자가 열 주소"라고 표시하는 줄 (Vite/Next/Astro "Local:", webpack "Loopback:").
+ * 라벨 바로 뒤에 URL 이 와야 한다. wrangler 의 "The Local Explorer API is available at http://…" 처럼
+ * 문장 속에 Local 이 들어간 줄은 해당하지 않는다.
+ */
 export function isPreferredUrlLine(line: string): boolean {
-  return /\b(local|loopback)\b/i.test(stripAnsi(line));
+  return /\b(local|loopback)\b\s*:?\s*https?:\/\//i.test(stripAnsi(line));
+}
+
+/** URL 경로 깊이. "/" 는 0, "/app" 은 1, "/cdn-cgi/local/explorer/api" 는 4 */
+export function urlPathDepth(url: string): number {
+  try {
+    return new URL(url).pathname.split('/').filter(Boolean).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * 우선 줄이 아닌 후보끼리는 경로가 얕은 쪽(루트에 가까운 쪽)을 고른다. 같으면 먼저 나온 쪽을 유지한다.
+ * 예: wrangler 는 Explorer API 의 깊은 경로를 먼저 찍고 "Ready on http://localhost:8787" 을 나중에 찍는다.
+ */
+export function isBetterCandidate(next: DetectedUrl, current: DetectedUrl): boolean {
+  return urlPathDepth(next.url) < urlPathDepth(current.url);
 }
 
 export interface DetectedUrl {

@@ -11,6 +11,7 @@ test/fixtures/**/dist/
 test/fixtures/**/.next/
 test/fixtures/**/.vite/
 test/fixtures/**/.cache/
+test/fixtures/**/.wrangler/
 test/fixtures/**/package-lock.json
 # pnpm-lock.yaml / yarn.lock 은 패키지 매니저 감지 테스트용이므로 유지
 

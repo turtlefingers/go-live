@@ -110,6 +110,7 @@ test('findNearestProjectDir: 위로 올라가며 가장 가까운 package.json, 
 test('휴대폰으로 보기: 도구별 host 인자, LAN 주소 선택, QR', () => {
   assert.deepEqual(lanArgs('vite'), ['--host', '0.0.0.0']);
   assert.deepEqual(lanArgs('next dev'), ['-H', '0.0.0.0']);
+  assert.deepEqual(lanArgs('wrangler dev'), ['--ip', '0.0.0.0']);
   assert.deepEqual(devArgs('npm', 'dev', undefined, ['--host', '0.0.0.0']), ['run', 'dev', '--', '--host', '0.0.0.0']);
   assert.deepEqual(devArgs('pnpm', 'dev', 3001, ['--host', '0.0.0.0']), ['run', 'dev', '--port', '3001', '--host', '0.0.0.0']);
   const ifaces = {

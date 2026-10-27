@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ProcessTerminal, RunResult } from './pty';
-import { UrlDetector, DetectedUrl } from './url';
+import { UrlDetector, DetectedUrl, isBetterCandidate, urlPathDepth } from './url';
 import { devArgs, installArgs } from './commands';
 import { lanArgs } from '../lan';
 import { classify, Classification, AutoRecovery, Stage } from '../errors';
@@ -247,9 +247,13 @@ export class NpmSession {
             return;
           }
           if (!candidate) {
-            // 백엔드 로그일 수 있으니 잠시 기다렸다가, 더 나은 주소가 없으면 이걸 쓴다
+            // 백엔드 로그일 수 있으니 잠시 기다렸다가, 더 나은 주소가 없으면 이걸 쓴다.
+            // 깊은 경로(wrangler 의 Explorer API 등)는 진짜 주소가 뒤따를 가능성이 커서 조금 더 기다린다
             candidate = hit;
-            graceTimer = setTimeout(() => settle({ kind: 'url', url: hit.url }), URL_GRACE_MS);
+            const grace = urlPathDepth(hit.url) >= 2 ? URL_GRACE_MS * 2 : URL_GRACE_MS;
+            graceTimer = setTimeout(() => settle({ kind: 'url', url: (candidate ?? hit).url }), grace);
+          } else if (isBetterCandidate(hit, candidate)) {
+            candidate = hit;
           }
         }
       });

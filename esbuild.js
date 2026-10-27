@@ -40,6 +40,7 @@ async function main() {
         { in: 'test/smoke/npm-flow.ts', out: 'npm-flow' },
         { in: 'test/smoke/server-features.ts', out: 'server-features' },
         { in: 'test/smoke/kill-check.ts', out: 'kill-check' },
+        { in: 'test/smoke/wrangler-flow.ts', out: 'wrangler-flow' },
         { in: 'test/smoke/host-crash.ts', out: 'host-crash' },
         { in: 'test/smoke/host-crash-child.ts', out: 'host-crash-child' },
         { in: 'src/runner/watchdog.ts', out: 'watchdog' },

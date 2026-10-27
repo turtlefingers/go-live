@@ -23,6 +23,7 @@
 | `fullstack-concurrently` | 백엔드(3100)가 먼저 URL 을 찍어도 Vite 의 Local 주소를 연다. Vite proxy 로 `/api` 통과 |
 | `ws-chat` | 같은 포트의 WebSocket 에코. Stop 시 소켓까지 정리 |
 | `next-api` | Next.js SSR 페이지 + `/api/hello` (설치 용량 큼) |
+| `cloudflare-worker` | `wrangler dev`. Explorer API 안내(`/cdn-cgi/local/explorer/api`)가 먼저 찍혀도 `Ready on` 의 루트 주소를 연다. 휴대폰으로 보기는 `--ip 0.0.0.0` (설치 용량 큼, smoke 에는 미포함) |
 | `static-modules` | five-server 에서 ES module, fetch JSON, 한글 폴더/파일명, .glb/.wasm MIME, 저장 시 reload/refreshcss 신호 |
 | `vite-vanilla` (재사용) | Vite HMR 웹소켓으로 파일 수정 → update 메시지 수신 |
 

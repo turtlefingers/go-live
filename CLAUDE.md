@@ -13,10 +13,13 @@ npm run smoke       # vscode 스텁으로 실제 npm install→dev→URL→tree-
 npm run smoke:server # 서버 기능 검증: Express API, concurrently URL 선택, WebSocket, Next SSR, 정적 서버 MIME/리로드/404/Range, Vite HMR (--skip-next 가능)
 npm run smoke:crash  # 확장 호스트 SIGKILL 후 dev 서버 트리가 감시 프로세스로 정리되는지
 npm run smoke:kill   # Stop 이 프로세스 트리를 반복적으로 잘 죽이는지
+npm run smoke:wrangler # Cloudflare Workers: wrangler 의 Explorer API 안내 대신 Ready 의 루트 주소를 고르는지 (설치 용량 큼)
 npm run vsix        # production 번들 + .vsix 패키징
 ```
 
 F5 (Run Extension) → Extension Development Host 가 `test/fixtures/static-basic` 을 연다.
+
+스모크는 `npm run smoke…` 로 돌리되 **`-s`(silent) 를 붙이지 않는다.** 바깥 npm 이 `npm_config_loglevel=silent` 를 자식 `npm install` 에 물려줘 설치 오류 출력이 비고, 그러면 에러 분류/자동 복구가 동작하지 않은 것처럼 보인다 (Go Live 의 결함이 아니라 테스트 실행 환경 문제).
 
 ## 구조
 

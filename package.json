@@ -2,7 +2,7 @@
   "name": "go-live",
   "displayName": "Go Live - Live Server for npm & Vite",
   "description": "Live Server that also runs npm/Vite projects with one click — 정적 HTML이든 npm 프로젝트든 상태바 버튼 하나로 실행",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "doodlefingers",
   "license": "MIT",
   "engines": {
@@ -22,6 +22,8 @@
     "bun",
     "webpack",
     "next",
+    "cloudflare",
+    "wrangler",
     "react",
     "p5.js",
     "three.js",
@@ -204,7 +206,8 @@
     "smoke": "node esbuild.js --smoke && node dist-test/npm-flow.js",
     "smoke:server": "node esbuild.js --smoke && node dist-test/server-features.js",
     "smoke:crash": "node esbuild.js --smoke && node dist-test/host-crash.js",
-    "smoke:kill": "node esbuild.js --smoke && node dist-test/kill-check.js"
+    "smoke:kill": "node esbuild.js --smoke && node dist-test/kill-check.js",
+    "smoke:wrangler": "node esbuild.js --smoke && node dist-test/wrangler-flow.js"
   },
   "dependencies": {
     "qrcode-generator": "^1.4.4",

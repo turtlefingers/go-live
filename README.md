@@ -20,7 +20,7 @@
 | `index.html` 만 있음 | 내장 정적 서버로 서빙. 저장하면 리로드, CSS만 바뀌면 새로고침 없이 교체 |
 | `package.json` 있음 | 패키지 매니저 감지(npm/pnpm/yarn/bun) → 필요하면 install → `dev`/`start`/`serve`/`preview` 중 첫 스크립트 실행 → 출력에서 로컬 주소를 찾아 브라우저 열기 |
 
-Vite, webpack, Parcel, Next.js, Astro, SvelteKit, Express, `concurrently`로 묶은 풀스택 구성까지 확인했습니다. 백엔드와 프론트가 함께 뜨면 프론트의 `Local:` 주소를 엽니다.
+Vite, webpack, Parcel, Next.js, Astro, SvelteKit, Express, Cloudflare Workers(`wrangler dev`), `concurrently`로 묶은 풀스택 구성까지 확인했습니다. 백엔드와 프론트가 함께 뜨면 프론트의 `Local:` 주소를 엽니다.
 
 **Stop**을 누르거나 에디터를 닫으면 dev 서버와 그 자식 프로세스까지 정리합니다. 창을 강제로 닫아도 감시 프로세스가 뒤처리합니다.
 

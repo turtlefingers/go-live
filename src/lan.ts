@@ -60,5 +60,9 @@ export function lanArgs(scriptCommand: string): string[] {
   if (/\bnext\b/.test(scriptCommand)) {
     return ['-H', '0.0.0.0'];
   }
+  if (/\bwrangler\b/.test(scriptCommand)) {
+    // Cloudflare Workers: --host 는 "개발용 호스트 헤더" 옵션이라 다른 뜻. 수신 주소는 --ip
+    return ['--ip', '0.0.0.0'];
+  }
   return ['--host', '0.0.0.0'];
 }
